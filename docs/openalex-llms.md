@@ -92,7 +92,7 @@ Content download (PDF): $0.01
 ## Limits
 
 OR values per filter: 100
-per_page max: 100
+per_page max: 200
 sample max: 10,000
 Basic paging: 10,000 results (use cursor for more)
 
