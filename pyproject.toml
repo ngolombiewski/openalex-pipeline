@@ -1,0 +1,24 @@
+[project]
+name = "openalex-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dagster>=1.13.0",
+    "dagster-webserver>=1.13.0",
+    "duckdb>=1.5.2",
+    "loguru>=0.7.3",
+    "openalex-official>=0.3.3",
+    "orjson>=3.11.8",
+    "polars>=1.39.3",
+    "pydantic-settings>=2.13.1",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.10",
+]
