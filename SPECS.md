@@ -23,6 +23,10 @@ OpenAlex CLI -> JSON -> Polars -> Parquet -> GCS -> BigQuery -> dbt -> Streamlit
 
 Orchestrated by Dagster as software-defined assets.
 
+## TECH STACK
+
+See `STACK.md`.
+
 ## Open Questions
 
 - Exact OpenAlex subfield IDs for AI — needs exploration

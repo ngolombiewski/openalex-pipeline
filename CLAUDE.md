@@ -20,3 +20,8 @@ Prefer local docs over web search. Check `docs/` first:
 ## TECH STACK
 
 Before introducing any tool or library not already in use, consult `STACK.md` or ask. Hard constraints: never `pip` (use `uv`), never pandas (use Polars).
+Always use `uv run python` (or `uv run <script>`) instead of `python3` or `python` directly.
+
+## MEMORY (managed by Claude)
+
+Your auto-memory feature is turned off. Append everything you need to remember at all times here:
