@@ -1,0 +1,26 @@
+# Secrets
+.env
+*.json.key
+
+# GCP service account keys (common naming patterns)
+*-credentials.json
+service-account*.json
+
+# Data (can get large)
+data/
+*.parquet
+*.jsonl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Notebooks (optional - depends if you want to commit them)
+notebooks/
+
+# direnv
+.direnv/
+
+# OS
+.DS_Store
