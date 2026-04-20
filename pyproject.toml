@@ -9,10 +9,10 @@ dependencies = [
     "dagster-webserver>=1.13.0",
     "duckdb>=1.5.2",
     "loguru>=0.7.3",
-    "openalex-official>=0.3.3",
     "orjson>=3.11.8",
     "polars>=1.39.3",
     "pydantic-settings>=2.13.1",
+    "requests>=2.33.1",
 ]
 
 [dependency-groups]
