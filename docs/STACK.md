@@ -6,7 +6,7 @@
 |---|---|---|
 | Language | Python 3.12 | |
 | Package manager | uv | Never pip |
-| Data source | OpenAlex CLI (`openalex-official`) + REST | See `docs/openalex-llms.md` |
+| Data source | OpenAlex REST API | See `docs/openalex-llms.md` |
 | Local processing | Polars, DuckDB | Never pandas |
 | Cloud storage | GCS | |
 | Warehouse | BigQuery | Partition by `publication_year`, cluster by `subfield_id` |

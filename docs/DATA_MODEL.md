@@ -4,18 +4,18 @@
 
 ### Rule
 
-A work is flagged as AI (`is_ai = true`) if **any entry** in its `topics` array belongs to one of the following OpenAlex subfields:
+A work is flagged as AI (`is_ai = true`) if its `primary_topic.subfield.id` matches one of the following OpenAlex subfields:
 
 - `Artificial Intelligence`
 - `Computer Vision and Pattern Recognition` *(see ablation below)*
 
-Classification is applied as a boolean attribute on each work. The work's `primary_topic` subfield is used separately for grouping in Gini and half-life analyses — a work can be "AI-flagged" while belonging to a non-AI primary subfield.
+Classification and all analytical groupings (subfield share, Gini, half-life) are derived from `primary_topic` only. The full `topics` array is retained in bronze but not used for classification.
 
 ### Rationale
 
-Using the full `topics` array (rather than `primary_topic` only) captures papers where AI is a significant but secondary lens — e.g. a systems paper whose topics include an AI entry. Filtering to `primary_topic` would undercount AI's footprint.
+Using `primary_topic` is simpler, avoids double-counting, and is more analytically defensible — a work's primary topic reflects its core contribution. We trust OpenAlex's classification rather than trying to second-guess it via the secondary topics array.
 
-CV/PR is included by default because the subfield is inseparable from modern AI research. This is a judgment call and is tested as an ablation.
+CV/PR inclusion is a judgment call and is tested as an ablation.
 
 ### Ablation
 
@@ -30,14 +30,14 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 
 ### Open questions
 
-- Whether to include specific topics from Signal Processing or HCI subfields. Deferred pending initial analysis.
+- CV/PR inclusion — deferred to analysis time; both ablation variants will be computed.
 - Subfield IDs (not just display names) — to be pinned once confirmed via API.
 
 ---
 
 ## Bronze Layer: Works Table
 
-**Source**: OpenAlex works entity, filtered to Computer Science field.  
+**Source**: OpenAlex works entity, filtered to Computer Science field (`primary_topic.field.id:17`). No year range filter — full historical coverage.  
 **Format**: Parquet, partitioned by `publication_year`.  
 **Nesting**: Nested fields (`counts_by_year`, `primary_topic`, `topics`) are kept as-is in bronze. Flattening happens in dbt staging models.
 
@@ -54,7 +54,7 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 | `is_retracted` | bool | Data quality filter |
 | `is_paratext` | bool | Data quality filter |
 | `primary_topic` | struct | Full struct: id, display_name, subfield, field |
-| `topics` | list[struct] | Full topic array — used for AI classification |
+| `topics` | list[struct] | Full topic array — retained but not used for classification |
 | `cited_by_count` | int | Cumulative total |
 | `counts_by_year` | list[struct] | Year-resolved citations — critical for half-life approximation |
 | `cited_by_percentile_year` | struct | |

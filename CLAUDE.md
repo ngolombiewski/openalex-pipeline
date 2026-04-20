@@ -2,7 +2,7 @@
 
 ## Project
 
-"AI Is Eating CS — But How Durable Is Its Research?" — a batch data pipeline analyzing AI's growing share of CS research across three questions: how AI's share has grown over time, whether AI papers age faster (citation half-life by subfield), and whether citation impact is more concentrated in AI than other CS subfields (Gini coefficient). Data source: OpenAlex works entity. Full spec: `SPECS.md`.
+"AI Is Eating CS — But How Durable Is Its Research?" — a batch data pipeline analyzing AI's growing share of CS research across three questions: how AI's share has grown over time, whether AI papers age faster (citation half-life by subfield), and whether citation impact is more concentrated in AI than other CS subfields (Gini coefficient). Data source: OpenAlex works entity.
 
 ## Working Mode
 
@@ -11,11 +11,10 @@ This is a solo learning project. For any concept central to the pipeline archite
 ## Docs
 
 Prefer local docs over web search. Check `docs/` first:
-- `docs/openalex-llms.md` — OpenAlex API reference (source of truth for data source)
-- `docs/openalex-cli.md` — OpenAlex CLI overview for simple usecases
-- `docs/openalex-official-cli-readme.md` — README.md from OpenAlex Official CLI GitHub repo (more in depth usage instructions)
-- `docs/openalex-works-overview.md` — Overview of OpenAlex works entity type
-- `docs/DATA_MODEL.md` — Source of truth for all data modeling decisions. Adhere strictly to it, ask if unclear.
+- `docs/SPECS.md`
+- `docs/STACK.md`
+- `docs/DATA_MODEL.md` — Source of truth for all data modeling decisions.
+- `docs//openalex-llms.md` — OpenAlex API reference for LLMs.
 
 ## TECH STACK
 

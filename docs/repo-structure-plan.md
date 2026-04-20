@@ -2,13 +2,14 @@
 
 openalex-pipeline/
 ├── CLAUDE.md
-├── SPECS.md
-├── STACK.md
 ├── pyproject.toml
 ├── docker-compose.yml
 ├── .env.example
 ├── docs/
-│   └── openalex-llms.md
+│   ├── SPECS.md
+│   ├── STACK.md
+│   ├── DATA_MODEL.md
+│   └── openalex-llms.md       # Official API reference and entrypoint for AI agents       
 ├── terraform/
 │   ├── main.tf
 │   ├── variables.tf
@@ -17,7 +18,7 @@ openalex-pipeline/
 │   ├── __init__.py
 │   ├── assets/
 │   │   ├── __init__.py
-│   │   ├── ingest.py          # OpenAlex CLI → JSON → Parquet
+│   │   ├── ingest.py          # OpenAlex Downloader → JSON → Parquet
 │   │   ├── gcs.py             # Parquet → GCS
 │   │   └── bigquery.py        # GCS → BQ external/native tables
 │   ├── resources/

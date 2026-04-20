@@ -12,10 +12,10 @@
 
 ## Data Source
 
-OpenAlex works entity (~20M CS works). Key gotchas:
+OpenAlex works entity (~14.7 M CS works). Key gotchas:
 - `cited_by_count` is cumulative, not time-resolved — half-life requires approximation
 - Topics endpoint only, Concepts is deprecated
-- Scale: filter to 2000–2025 for development, full pull for production
+- Scale: filter to one year for development, full pull for production
 
 ## Pipeline Shape
 
@@ -25,7 +25,7 @@ Orchestrated by Dagster as software-defined assets.
 
 ## TECH STACK
 
-See `STACK.md`.
+See `docs/STACK.md`.
 
 ## Open Questions
 
