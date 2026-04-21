@@ -11,9 +11,9 @@ from pathlib import Path
 import orjson
 import requests
 from loguru import logger
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Bronze layer columns per DATA_MODEL.md
+# Bronze layer columns per DATA_MODEL.md. Applied server-side via OpenAlex `select=`.
 SELECTED_FIELDS: list[str] = [
     "id",
     "title",
@@ -43,12 +43,25 @@ LARGE_DATASET_THRESHOLD = 2_000_000
 CHECKPOINT_FILENAME = ".checkpoint.json"
 LOG_FILENAME = "download.log"
 
+# Retry budget for transient failures (5xx, network errors). 429s are handled
+# separately via an outer loop and do NOT consume this budget.
+TRANSIENT_BACKOFF_DELAYS_S = [5, 10, 20]
+DEFAULT_RETRY_AFTER_S = 60
+
+
+class CreditsExhaustedError(Exception):
+    """Raised when OpenAlex reports insufficient remaining credits.
+
+    Not a failure — the caller should log and exit cleanly. Checkpoint is
+    preserved so the next run resumes where this one left off.
+    """
+
 
 class Settings(BaseSettings):
-    openalex_api_key: str = ""
+    # No default — pydantic raises on missing env var. Fail loud, fail early.
+    openalex_api_key: str
 
-    class Config:
-        env_prefix = "OPENALEX_"
+    model_config = SettingsConfigDict(env_prefix="OPENALEX_")
 
 
 @dataclass
@@ -58,6 +71,7 @@ class Checkpoint:
     batch_index: int
     records_written: int
     records_skipped: int
+    expected_total: int
 
 
 class OpenAlexDownloader:
@@ -70,6 +84,8 @@ class OpenAlexDownloader:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Loguru attaches a default stderr handler at import time. Wipe it so
+        # we define logging from scratch and don't get duplicate lines.
         logger.remove()
         logger.add(sys.stderr, level="INFO")
         logger.add(
@@ -79,6 +95,8 @@ class OpenAlexDownloader:
             encoding="utf-8",
         )
 
+        # Intercept Ctrl-C / kill so we finish the current page cleanly
+        # instead of dying mid-write.
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
@@ -92,84 +110,110 @@ class OpenAlexDownloader:
         checkpoint = self._load_checkpoint()
         if checkpoint is not None:
             if checkpoint.filter_str != self.filter_str:
-                logger.error(
-                    "checkpoint filter mismatch: saved={!r} current={!r} — refusing to overwrite",
-                    checkpoint.filter_str,
-                    self.filter_str,
+                raise ValueError(
+                    f"checkpoint filter mismatch: "
+                    f"saved={checkpoint.filter_str!r} current={self.filter_str!r} — "
+                    f"refusing to overwrite a different dataset"
                 )
-                sys.exit(1)
             logger.info(
-                "resuming from batch {} | {} records already written",
+                "resuming from batch {} | {}/{} records already written",
                 checkpoint.batch_index,
                 checkpoint.records_written,
+                checkpoint.expected_total,
             )
             cursor = checkpoint.cursor
             batch_index = checkpoint.batch_index
             records_written = checkpoint.records_written
             records_skipped = checkpoint.records_skipped
         else:
-            logger.info("starting fresh download")
+            logger.info("starting fresh download | expected {} records", expected)
             cursor = "*"
             batch_index = 0
             records_written = 0
             records_skipped = 0
 
-        while cursor and not self._shutdown:
-            t0 = time.monotonic()
-            records, next_cursor = self._fetch_page(cursor)
-            elapsed = time.monotonic() - t0
+        try:
+            while cursor and not self._shutdown:
+                t0 = time.monotonic()
+                records, next_cursor = self._fetch_page(cursor)
+                elapsed = time.monotonic() - t0
 
-            valid = [r for r in records if "id" in r]
-            skipped = len(records) - len(valid)
-            if skipped:
-                logger.warning(
-                    "batch {} | skipped {} records missing 'id'", batch_index, skipped
+                valid = [r for r in records if "id" in r]
+                skipped = len(records) - len(valid)
+                if skipped:
+                    logger.warning(
+                        "batch {} | skipped {} records missing 'id'",
+                        batch_index,
+                        skipped,
+                    )
+                records_skipped += skipped
+
+                if valid:
+                    self._write_batch(valid, batch_index)
+
+                records_written += len(valid)
+                rate = len(valid) / elapsed if elapsed > 0 else 0
+                logger.info(
+                    "batch {} | {} records | {:.0f} rec/s | cursor: {}",
+                    batch_index,
+                    len(valid),
+                    rate,
+                    next_cursor or "done",
                 )
-            records_skipped += skipped
 
-            if valid:
-                self._write_batch(valid, batch_index)
+                batch_index += 1
+                cursor = next_cursor or ""
 
-            records_written += len(valid)
-            rate = len(valid) / elapsed if elapsed > 0 else 0
-            logger.info(
-                "batch {} | {} records | {:.0f} rec/s | cursor: {}",
-                batch_index,
-                len(valid),
-                rate,
-                next_cursor or "done",
-            )
-
-            batch_index += 1
-            cursor = next_cursor or ""
-
-            self._save_checkpoint(
-                Checkpoint(
-                    filter_str=self.filter_str,
-                    cursor=cursor,
-                    batch_index=batch_index,
-                    records_written=records_written,
-                    records_skipped=records_skipped,
+                self._save_checkpoint(
+                    Checkpoint(
+                        filter_str=self.filter_str,
+                        cursor=cursor,
+                        batch_index=batch_index,
+                        records_written=records_written,
+                        records_skipped=records_skipped,
+                        expected_total=expected,
+                    )
                 )
-            )
+        except CreditsExhaustedError as exc:
+            logger.warning("{} — checkpoint saved, exiting cleanly", exc)
+            return
 
+        # Completion summary. `expected` is a snapshot from preflight; for long
+        # runs it may drift as OpenAlex indexes new works, so treat a small
+        # delta as informational rather than an error.
+        total = records_written + records_skipped
+        delta = expected - total
         if self._shutdown:
-            logger.info("shutdown complete | {} records written", records_written)
-        else:
             logger.info(
-                "download complete | {} records written | {} skipped",
+                "shutdown complete | {}/{} records written ({} skipped)",
                 records_written,
+                expected,
                 records_skipped,
             )
+        else:
+            logger.info(
+                "download complete | {} written | {} skipped | "
+                "expected {} | delta {:+d}",
+                records_written,
+                records_skipped,
+                expected,
+                delta,
+            )
+            if abs(delta) > max(100, expected // 1000):
+                logger.warning(
+                    "large delta between expected ({}) and actual ({}) record "
+                    "counts — investigate",
+                    expected,
+                    total,
+                )
 
     def _preflight(self) -> int:
         logger.info("running pre-flight check for filter: {!r}", self.filter_str)
         params: dict[str, str | int] = {
             "filter": self.filter_str,
             "per-page": 1,
+            "api_key": self.api_key,
         }
-        if self.api_key:
-            params["api_key"] = self.api_key
 
         resp = self._session.get(f"{OPENALEX_BASE}/works", params=params, timeout=30)
         resp.raise_for_status()
@@ -180,7 +224,8 @@ class OpenAlexDownloader:
 
         if count > LARGE_DATASET_THRESHOLD:
             logger.warning(
-                "large dataset ({} records) — consider adding a publication_year filter to narrow the scope",
+                "large dataset ({} records) — consider adding a publication_year "
+                "filter to narrow the scope",
                 count,
             )
 
@@ -200,60 +245,33 @@ class OpenAlexDownloader:
         tmp.rename(path)
 
     def _fetch_page(self, cursor: str) -> tuple[list[dict], str | None]:
+        """Fetch one page. Blocks indefinitely on 429s; bounded retries on 5xx.
+
+        429 (rate limit) and credit-exhaustion are distinct concerns from
+        transient failures, so they do NOT consume the retry budget. The outer
+        loop handles 429s; the inner loop handles network errors and 5xx.
+        """
         params: dict[str, str | int] = {
             "filter": self.filter_str,
             "cursor": cursor,
             "per-page": PER_PAGE,
+            "select": ",".join(SELECTED_FIELDS),
+            "api_key": self.api_key,
         }
-        if self.api_key:
-            params["api_key"] = self.api_key
-
         url = f"{OPENALEX_BASE}/works"
-        backoff_delays = [5, 10, 20]
 
-        for attempt, delay in enumerate(backoff_delays + [None], start=1):  # type: ignore[list-item]
-            try:
-                resp = self._session.get(url, params=params, timeout=60)
-            except requests.RequestException as exc:
-                if delay is None:
-                    raise
-                logger.warning(
-                    "request error (attempt {}): {} — retrying in {}s",
-                    attempt,
-                    exc,
-                    delay,
-                )
-                time.sleep(delay)
-                continue
+        while True:  # outer loop: retry indefinitely on 429
+            resp = self._request_with_transient_retry(url, params)
+
+            # Pre-emptive credit check on every response, not just 429s.
+            # If the server tells us the next request would exceed our budget,
+            # stop now before making it.
+            self._check_credits(resp)
 
             if resp.status_code == 429:
-                remaining = resp.headers.get("X-RateLimit-Remaining")
-                required = resp.headers.get("X-RateLimit-Credits-Required")
-                if remaining is not None and required is not None:
-                    try:
-                        if int(remaining) < int(required):
-                            raise RuntimeError(
-                                f"rate limit credits exhausted "
-                                f"(remaining={remaining}, required={required}) — checkpoint saved"
-                            )
-                    except ValueError:
-                        pass
-
-                retry_after = int(resp.headers.get("Retry-After", 60))
+                retry_after = self._parse_retry_after(resp)
                 logger.warning("429 rate limited — sleeping {}s", retry_after)
                 time.sleep(retry_after)
-                continue
-
-            if resp.status_code >= 500:
-                if delay is None:
-                    resp.raise_for_status()
-                logger.warning(
-                    "HTTP {} (attempt {}) — retrying in {}s",
-                    resp.status_code,
-                    attempt,
-                    delay,
-                )
-                time.sleep(delay)
                 continue
 
             resp.raise_for_status()
@@ -262,9 +280,85 @@ class OpenAlexDownloader:
             next_cursor: str | None = data.get("meta", {}).get("next_cursor")
             return records, next_cursor
 
-        raise RuntimeError("all retry attempts exhausted")
+    def _request_with_transient_retry(
+        self, url: str, params: dict
+    ) -> requests.Response:
+        """GET with bounded exponential backoff for 5xx and network errors.
+
+        Returns the response for the caller to inspect. 429s are returned
+        as-is (the outer loop handles them) and do NOT consume retry budget.
+        """
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate(TRANSIENT_BACKOFF_DELAYS_S, start=1):
+            try:
+                resp = self._session.get(url, params=params, timeout=60)
+            except requests.RequestException as exc:
+                last_exc = exc
+                logger.warning(
+                    "request error (attempt {}/{}): {} — retrying in {}s",
+                    attempt,
+                    len(TRANSIENT_BACKOFF_DELAYS_S),
+                    exc,
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+
+            if resp.status_code >= 500:
+                logger.warning(
+                    "HTTP {} (attempt {}/{}) — retrying in {}s",
+                    resp.status_code,
+                    attempt,
+                    len(TRANSIENT_BACKOFF_DELAYS_S),
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+
+            # Includes 2xx, 4xx (incl. 429) — caller decides.
+            return resp
+
+        # Final attempt, no more retries — one last try, let exceptions propagate.
+        try:
+            return self._session.get(url, params=params, timeout=60)
+        except requests.RequestException as exc:
+            raise RuntimeError(
+                f"transient retries exhausted after {len(TRANSIENT_BACKOFF_DELAYS_S)} "
+                f"attempts; last error: {last_exc or exc}"
+            ) from exc
+
+    @staticmethod
+    def _check_credits(resp: requests.Response) -> None:
+        """Raise CreditsExhaustedError if the next request would exceed budget."""
+        remaining = resp.headers.get("X-RateLimit-Remaining")
+        required = resp.headers.get("X-RateLimit-Credits-Required")
+        if remaining is None or required is None:
+            return
+        try:
+            if int(remaining) < int(required):
+                raise CreditsExhaustedError(
+                    f"rate limit credits exhausted "
+                    f"(remaining={remaining}, required={required})"
+                )
+        except ValueError:
+            # Malformed headers — log and proceed; don't fail on header parsing.
+            logger.debug(
+                "could not parse rate-limit headers: remaining={!r} required={!r}",
+                remaining,
+                required,
+            )
+
+    @staticmethod
+    def _parse_retry_after(resp: requests.Response) -> int:
+        raw = resp.headers.get("Retry-After", str(DEFAULT_RETRY_AFTER_S))
+        try:
+            return int(raw)
+        except ValueError:
+            return DEFAULT_RETRY_AFTER_S
 
     def _write_batch(self, records: list[dict], batch_index: int) -> None:
+        # Server-side `select=` already narrowed the fields, but we defensively
+        # filter again in case OpenAlex returns extras.
         path = self._batch_path(batch_index)
         tmp = path.with_suffix(".tmp")
         lines = b"\n".join(
@@ -287,13 +381,18 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path, help="Output directory")
     args = parser.parse_args()
 
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]  # pydantic reads from env
     downloader = OpenAlexDownloader(
         output_dir=args.output,
         filter_str=args.filter_str,
         api_key=settings.openalex_api_key,
     )
-    downloader.run()
+    try:
+        downloader.run()
+    except ValueError as exc:
+        # Config errors (e.g. filter mismatch on resume) — user-facing, exit 1.
+        logger.error(str(exc))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
