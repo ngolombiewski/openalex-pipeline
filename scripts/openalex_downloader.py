@@ -58,10 +58,7 @@ class CreditsExhaustedError(Exception):
 
 
 class Settings(BaseSettings):
-    # No default — pydantic raises on missing env var. Fail loud, fail early.
     openalex_api_key: str
-
-    model_config = SettingsConfigDict(env_prefix="OPENALEX_")
 
 
 @dataclass
@@ -84,8 +81,6 @@ class OpenAlexDownloader:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Loguru attaches a default stderr handler at import time. Wipe it so
-        # we define logging from scratch and don't get duplicate lines.
         logger.remove()
         logger.add(sys.stderr, level="INFO")
         logger.add(
@@ -95,8 +90,6 @@ class OpenAlexDownloader:
             encoding="utf-8",
         )
 
-        # Intercept Ctrl-C / kill so we finish the current page cleanly
-        # instead of dying mid-write.
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
