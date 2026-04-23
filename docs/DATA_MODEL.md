@@ -37,7 +37,7 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 
 ## Bronze Layer: Works Table
 
-**Source**: OpenAlex works entity, filtered to Computer Science field (`primary_topic.field.id:17`). No year range filter — full historical coverage.  
+**Source**: OpenAlex works entity, filtered to Computer Science field (`primary_topic.field.id:17`). Year range: 1950 until today.
 **Format**: Parquet, partitioned by `publication_year`.  
 **Nesting**: Nested fields (`counts_by_year`, `primary_topic`, `topics`) are kept as-is in bronze. Flattening happens in dbt staging models.
 
@@ -65,7 +65,11 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 | `doi` | string | Deduplication |
 | `ids` | struct | External ID crosswalk |
 | `keywords` | list[struct] | Low signal; retained as cheap insurance |
+| `updated_date` | date | |
+
+**Extra**:
+| `_extracted_at` | date | Written at extraction time, not present in data source |
 
 ### Excluded columns
 
-`abstract_inverted_index`, `authorships`, `institutions`, `funders`, `apc_list`, `apc_paid`, `awards`, `mesh`, `sustainable_development_goals`, `related_works`, `referenced_works`, `locations`, `best_oa_location`, `primary_location`, `content_urls`, `corresponding_author_ids`, `corresponding_institution_ids`, `countries_distinct_count`, `institutions_distinct_count`, `locations_count`, `indexed_in`, `has_content`, `has_fulltext`, `is_xpac`, `created_date`, `updated_date`
+`abstract_inverted_index`, `authorships`, `institutions`, `funders`, `apc_list`, `apc_paid`, `awards`, `mesh`, `sustainable_development_goals`, `related_works`, `referenced_works`, `locations`, `best_oa_location`, `primary_location`, `content_urls`, `corresponding_author_ids`, `corresponding_institution_ids`, `countries_distinct_count`, `institutions_distinct_count`, `locations_count`, `indexed_in`, `has_content`, `has_fulltext`, `is_xpac`, `created_date`
