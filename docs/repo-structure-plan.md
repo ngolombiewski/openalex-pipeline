@@ -1,43 +1,59 @@
-# Planned directory structure for openalex-pipeline repo (suggested by Opus 4.6 given specs and stack)
+# Preliminary plan for repo structure
 
 openalex-pipeline/
-├── CLAUDE.md
+├── README.md
 ├── pyproject.toml
-├── docker-compose.yml
+├── uv.lock
 ├── .env.example
-├── docs/
-│   ├── SPECS.md
-│   ├── STACK.md
-│   ├── DATA_MODEL.md
-│   └── openalex-llms.md       # Official API reference and entrypoint for AI agents       
-├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
-├── pipeline/                  # Python package — ingestion + Dagster assets
+├── .gitignore
+├── .python-version
+│
+├── docs/ ...
+│
+├── openalex_pipeline/
 │   ├── __init__.py
-│   ├── assets/
-│   │   ├── __init__.py
-│   │   ├── ingest.py          # OpenAlex Downloader → JSON → Parquet
-│   │   ├── gcs.py             # Parquet → GCS
-│   │   └── bigquery.py        # GCS → BQ external/native tables
-│   ├── resources/
-│   │   ├── __init__.py
-│   │   └── io.py              # GCS client, BQ client configs
-│   └── definitions.py         # Dagster Definitions entry point
-├── dbt/
+│   ├── definitions.py          # Dagster's entry point: top-level asset defs
+│   ├── extraction/...
+│   └── assets/                 # Dagster asset definitions
+│      ├── __init__.py
+│      ├── extraction.py       # @asset wrapping extraction.run()
+│      └── loading.py          # future
+│
+├── dbt/                            # dbt project (sibling of src, NOT nested)
 │   ├── dbt_project.yml
-│   ├── profiles.yml           # or rely on env vars
+│   ├── profiles.yml                # gitignored if it has secrets; .example committed
 │   ├── models/
 │   │   ├── staging/
 │   │   ├── intermediate/
 │   │   └── marts/
-│   └── macros/
-├── dashboard/
+│   ├── macros/
+│   ├── tests/
+│   └── seeds/
+│
+├── terraform/
+│   ├── main.tf                     # GCP provider, project, region
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── gcs.tf                      # bucket for parquet landing
+│   ├── bigquery.tf                 # dataset, possibly external tables
+│   ├── iam.tf                      # service account, roles
+│   └── terraform.tfvars.example    # committed; real .tfvars gitignored
+│
+├── dashboard/                      # Streamlit app
 │   └── app.py
-├── data/                      # .gitignored, local exploration
-│   └── raw/
-├── scripts/                   # on-off helper scripts
-└── notebooks/                 # .gitignored, scratch exploration
-
-Key rationale: pipeline/ is both your Python package and your Dagster code location — definitions.py is what Dagster loads. dbt lives separately because dagster-dbt points at the dbt project path. Keeping them as siblings avoids circular weirdness.
+│
+├── tests/
+│   ├── __init__.py
+│   ├── extraction/...
+│   └── fixtures/
+│       └── openalex_responses/     # canned JSON for HTTP-layer tests
+│
+├── data/                           # gitignored
+│   └── raw/works/year=YYYY/...     # extraction output lives here
+│
+├── docker/
+│   ├── Dockerfile                  # one image is enough for now
+│   └── docker-compose.yml
+│
+└── scripts/                        # ad-hoc / dev convenience
+    └── explore_openalex.py         # the exploratory notebook-as-script

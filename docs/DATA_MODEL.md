@@ -72,4 +72,4 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 
 ### Excluded columns
 
-`abstract_inverted_index`, `authorships`, `institutions`, `funders`, `apc_list`, `apc_paid`, `awards`, `mesh`, `sustainable_development_goals`, `related_works`, `referenced_works`, `locations`, `best_oa_location`, `primary_location`, `content_urls`, `corresponding_author_ids`, `corresponding_institution_ids`, `countries_distinct_count`, `institutions_distinct_count`, `locations_count`, `indexed_in`, `has_content`, `has_fulltext`, `is_xpac`, `created_date`
+All others.

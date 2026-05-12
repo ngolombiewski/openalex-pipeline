@@ -26,4 +26,5 @@ Check `env.example` for present env vars, e.g.
 - OPENALEX_API_KEY
 
 ## Not Approved
+
 Anything not in the table above. Ask before introducing.
