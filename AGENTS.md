@@ -13,14 +13,13 @@ Don't proceed to implementation until I give the signal.
 
 Prefer local docs over web search. Check `docs/` first:
 - `docs/SPECS.md` — Learn about the project.
-- `docs/STACK.md` — ONLY use tools/deps approved here.
+- `docs/STACK.md` — Only use tools/deps approved here.
 - `docs/DATA_MODEL.md` — Source of truth for all data modeling decisions.
-- `docs/openalex-llms.md` — OpenAlex API reference for LLMs.
 
-## TECH STACK
+## Execution Guidelines
 
-Before introducing any tool or library not already in use, consult `docs/STACK.md` or ask. Hard constraints: never `pip` (use `uv`), never pandas (use Polars).
-Always use `uv run python` (or `uv run <script>`) instead of `python3` or `python` directly.
+- never `pip`, use `uv`
+- use `uv run python` (or `uv run <script>`) instead of `python3` or `python` directly
 
 ## Current Status
 
@@ -28,7 +27,6 @@ Always use `uv run python` (or `uv run <script>`) instead of `python3` or `pytho
 - `src/openalex_pipeline/extraction` – Contracts for extraction module (docstrings)
 
 **Next steps**:
-- Verify the contracts
 - Implement tests in `/tests/extraction` against them
 
 ## AGENT MEMORY
