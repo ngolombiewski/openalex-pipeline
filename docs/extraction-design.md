@@ -77,7 +77,7 @@ Three states a year directory can be in:
 
 - **Untouched**: directory does not exist or is empty.
 - **In progress**: `_META.json` and `_CURSOR` present, no `_SUCCESS`.
-- **Complete**: `_SUCCESS` present.
+- **Complete**: `_META.json`, at least one page file, and `_SUCCESS` present.
 
 ## Invariants
 
@@ -87,7 +87,7 @@ Each invariant exists to prevent a specific failure mode. The naming convention 
 
 **M2 — `_META.json` ⟺ first page.** `_META.json` exists if and only if at least one page file exists in the year directory. Violation indicates a crash mid-first-page; recovery is to delete the orphan(s) and restart the year.
 
-**M3 — `_CURSOR` ⟺ in progress.** For a year that is in progress (has `_META.json`, no `_SUCCESS`), `_CURSOR` must exist and contain the cursor for the next page. Missing `_CURSOR` in an in-progress year requires full restart of that year (the cursor cannot be recovered any other way). For completed years, `_CURSOR` may or may not be present; it is not consulted.
+**M3 — `_CURSOR` ⟺ in progress.** For a year that is in progress (has `_META.json`, no `_SUCCESS`), `_CURSOR` must exist and contain a non-empty cursor for the next page. Missing `_CURSOR` in an in-progress year requires full restart of that year (the cursor cannot be recovered any other way). An empty `_CURSOR` is the same class of recoverable crash state, but is reported with a distinct reason (`empty_cursor`) so logs/tests can distinguish existence from content. For completed years, `_CURSOR` may or may not be present; it is not consulted.
 
 **M4 — Page numbering contiguity.** Page files in a year are numbered contiguously from `page_00001.jsonl`. Gaps indicate manual tampering or filesystem corruption; the affected year is treated as corrupted and surfaces an error.
 
@@ -97,7 +97,7 @@ Each invariant exists to prevent a specific failure mode. The naming convention 
 
 **M7 — Count reconciliation (secondary).** At year completion, the sum of records across all page files must equal `_META.json.expected_count`. Mismatch — which can only occur from drift *within* a single contiguous run — fails loudly, blocks `_SUCCESS`, and requires manual intervention.
 
-**M8 — Filter scope consistency.** Any year directory with `_SUCCESS` must have `_META.json.filter` matching the current run's effective per-year API filter, including the year predicate (for example, `primary_topic.field.id:17,publication_year:1980`). The scan step validates this for the prefix of completed years; the runner validates it lazily for any subsequent completed year it iterates past. Mismatch is a loud failure (refusal to mix data from different filter scopes).
+**M8 — Filter scope consistency.** Any year directory with `_SUCCESS` must have `_META.json.filter` matching the current run's effective per-year API filter, including the year predicate (for example, `primary_topic.field.id:17,publication_year:1980`). If `_SUCCESS` exists but `_META.json` is missing, the year is corrupted: it cannot pass filter validation and must not be treated as complete. The scan step validates completed years as it walks the range; the runner relies on `scan()`'s `completed_years` set when recording skipped years. Mismatch is a loud failure (refusal to mix data from different filter scopes).
 
 **M9 — Snapshot stamp.** Each record, at write time, gets an `_extracted_at` field (ISO 8601 UTC timestamp) injected into the JSON before serialization. This is the per-record snapshot column. The API's `updated_date` field is included in the select list but serves a distinct purpose (record version, not fetch time).
 
@@ -130,7 +130,7 @@ src/openalex_pipeline/extraction/
 - **http.py — `request_page()`.** Issues one HTTP GET for a given filter + cursor, parses the response, returns a `Page` or raises a typed exception. Owns the retry loop for transient failures (403, 5xx, timeout). Knows nothing about cursors, pages, years, or files beyond passing them through. The HTTP wire is the test seam (mocked via `responses` library), not the Python boundary.
 - **storage.py.** All filesystem mutation lives here. Functions: `initialize_year(settings, year, meta)`, `write_page(settings, year, page_number, records, next_cursor, overwrite=False)`, `read_page_work_ids(settings, year, page_number)`, `finalize_year(settings, year)`, `discard_year(settings, year)`. Concentrates M1, M2, M3, M5, M7, M9.
 - **scan.py — `scan()`.** Walks year directories ascending, validates each completed year's filter (M8), returns a `ResumePlan`. Performs no writes. Recoverable crash states are reported through `ResumePlan.recovery`; fatal corruption still raises.
-- **runner.py — `run()`, `_process_year()`.** `run()` is the public entry point: calls `scan()`, handles any `ResumePlan.recovery` by discarding the affected year before processing, iterates years from the resume target, handles `CreditsExhausted` as a clean stop, handles `DriftDetected` as a single-attempt year restart. `_process_year()` encapsulates one year's worth of work (drift check on first response, stale-cursor page comparison, cursor walk, finalization). The Mn invariants enforced at the loop level: M5 (stale-cursor recovery), M6 (drift check), M8 (lazy filter validation as years are iterated past).
+- **runner.py — `run()`, `_process_year()`.** `run()` is the public entry point: calls `scan()`, handles any `ResumePlan.recovery` by discarding the affected year before processing, then iterates the configured year range from the beginning. Years reported in `ResumePlan.completed_years` are emitted as `skipped_complete` outcomes and not reprocessed; the first non-complete year is processed from `ResumePlan.target`; later non-complete years are fresh starts. `run()` handles `CreditsExhausted` as a clean stop and handles `DriftDetected` as a single-attempt year restart. `_process_year()` encapsulates one year's worth of work (drift check on first response, stale-cursor page comparison, cursor walk, finalization). The Mn invariants enforced at the loop level: M5 (stale-cursor recovery), M6 (drift check), and honoring M8 through the completed-years plan returned by `scan()`.
 
 ## Error Taxonomy
 
@@ -147,7 +147,7 @@ The HTTP layer raises typed exceptions. The runner decides what to do about each
 | `ReconciliationFailed` | M7 mismatch at year end | Propagate. Loud failure, no `_SUCCESS`. |
 | `FilterScopeMismatch` | M8 mismatch | Propagate. Loud failure. |
 | `CorruptedYearState` | M4 or other unrecoverable state | Propagate. |
-| `RecoverableYearState` | M2/M3 recoverable crash state | Returned by `scan()` inside `ResumePlan`; runner calls `discard_year()` and restarts that year. |
+| `RecoverableYearState` | M2/M3 recoverable crash state | Returned by `scan()` inside `ResumePlan`; runner calls `discard_year()` and restarts that year. Stable reason codes include `orphan_meta`, `orphan_pages`, `missing_cursor`, and `empty_cursor`. |
 
 `request_page` never returns `None` or any sentinel value. It either returns a valid `Page` or raises. `Page.records` may be an empty list only for a valid zero-result response with `meta.count == 0` and no next cursor. This is a structural defense against the silent-skip failure mode that plagued the official CLI tool.
 
