@@ -25,9 +25,10 @@ Prefer local docs over web search. Check `docs/` first:
 
 - `docs/extraction-design.md` — Contains reasoning behind the extraction module design and explains its invariants.
 - `src/openalex_pipeline/extraction` – Contracts for extraction module (docstrings)
+- `/tests/extraction` – Tests for extraction module
 
 **Next steps**:
-- Implement tests in `/tests/extraction` against them
+- Check tests in `/tests/extraction` for state(!) coverage and clarity, add comments where useful 
 
 ## AGENT MEMORY
 
