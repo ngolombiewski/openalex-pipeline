@@ -7,7 +7,7 @@ import responses
 
 from openalex_pipeline.extraction.config import Settings
 from openalex_pipeline.extraction.constants import OPENALEX_BASE_URL
-from openalex_pipeline.extraction.errors import BadRequest, DriftDetected
+from openalex_pipeline.extraction.errors import BadRequest, CreditsExhausted, DriftDetected
 from openalex_pipeline.extraction import runner
 from openalex_pipeline.extraction.runner import run
 from openalex_pipeline.extraction.types import ResumePlan, ResumeTarget, YearMeta
@@ -168,6 +168,61 @@ def test_run_propagates_second_drift_in_same_year(
 
     with pytest.raises(DriftDetected):
         run(settings)
+
+
+def test_run_stops_cleanly_when_credits_exhausted_during_drift_restart(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+) -> None:
+    meta = YearMeta(
+        filter="primary_topic.field.id:17,publication_year:1980",
+        expected_count=2,
+        started_at=datetime.now(UTC),
+    )
+    target = ResumeTarget(
+        year=1980,
+        next_page_number=2,
+        next_cursor="cursor-2",
+        existing_meta=meta,
+    )
+    monkeypatch.setattr(
+        runner,
+        "scan",
+        lambda _: ResumePlan(target=target, recovery=None, completed_years=frozenset()),
+        raising=False,
+    )
+
+    class StubStorage:
+        @staticmethod
+        def discard_year(_settings: Settings, year: int) -> None:
+            assert year == 1980
+
+    monkeypatch.setattr(
+        runner,
+        "storage",
+        StubStorage,
+        raising=False,
+    )
+
+    calls = 0
+
+    def process_then_exhaust(*_args: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise DriftDetected(1980, 2, 3)
+        raise CreditsExhausted("HTTP 429")
+
+    monkeypatch.setattr(
+        runner,
+        "_process_year",
+        process_then_exhaust,
+    )
+
+    summary = run(settings)
+
+    assert summary.stopped_reason == "credits_exhausted"
+    assert summary.total_records_fetched == 0
 
 
 @responses.activate

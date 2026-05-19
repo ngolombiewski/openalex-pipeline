@@ -11,7 +11,7 @@ from pathlib import Path
 import orjson
 import requests
 from loguru import logger
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 # Bronze layer columns per DATA_MODEL.md. Applied server-side via OpenAlex `select=`.
 SELECTED_FIELDS: list[str] = [
