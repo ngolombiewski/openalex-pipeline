@@ -23,17 +23,12 @@ Prefer local docs over web search. Check `docs/` first:
 
 ## Current Status
 
-- `docs/extraction-design.md` — Contains reasoning behind the extraction module design and explains its invariants.
-- `src/openalex_pipeline/extraction` – Contracts for extraction module (docstrings)
-- `/tests/extraction` – Tests for extraction module
+- `docs/extraction-design.md` — Contains reasoning behind the extraction module design and explains its invariants
+- `src/openalex_pipeline/extraction` – Extraction module implementation
+- `tests/extraction` – Tests for extraction module
 
 **Next steps**:
-- Implement src/openalex_pipeline/extraction against the committed contract tests.
-- Read docs/extraction-design.md, docs/STACK.md, and docs/DATA_MODEL.md first.
-- Do not change tests.
-- If a contract is demonstrably inconsistent with the docs, report to me.
-- Use uv run pytest tests/extraction and uv run ruff check src tests for verification.
-- Report if all unit tests pass and I'll review each loc.
+- Review extraction module for code quality and alignment with `SPECS.md` and `extraction-design.md`
 
 ## AGENT MEMORY
 
