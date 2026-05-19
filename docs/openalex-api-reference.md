@@ -22,6 +22,18 @@ GET /publishers - Publishing organizations
 GET /funders - Funding agencies
 GET /autocomplete/{entity} - Fast typeahead search
 
+## HTTP Status Codes
+
+| Code  | Meaning           | What to Do                             |
+| ----- | ----------------- | -------------------------------------- |
+| `200` | Success           | Request completed successfully         |
+| `301` | Moved Permanently | Entity was merged; follow the redirect |
+| `400` | Bad Request       | Check your filter syntax or parameters |
+| `403` | Forbidden         | Rate limit exceeded; slow down         |
+| `404` | Not Found         | Entity doesn't exist                   |
+| `429` | Too Many Requests | Daily limit exceeded                   |
+| `500` | Server Error      | Temporary issue; retry with backoff    |
+
 ## CRITICAL: Always Resolve Names to IDs
 
 WRONG: /works?filter=authorships.author.display_name:Einstein
@@ -67,19 +79,19 @@ has_fulltext - Has searchable text
 
 ## Example Queries
 
-# Get highly cited 2024 articles
+### Get highly cited 2024 articles
 /works?filter=publication_year:2024,type:article,cited_by_count:>50&sort=cited_by_count:desc&per_page=100
 
-# Get open access works from an institution
+### Get open access works from an institution
 /works?filter=authorships.institutions.id:I27837315,is_oa:true&per_page=100
 
-# Bulk DOI lookup (up to 50)
+### Bulk DOI lookup (up to 50)
 /works?filter=doi:10.1234/a|10.1234/b|10.1234/c&per_page=50
 
-# Random sample with seed
+### Random sample with seed
 /works?sample=100&seed=42
 
-# Count works by topic
+### Count works by topic
 /works?filter=publication_year:2024&group_by=topics.id
 
 ## Pricing
@@ -125,6 +137,6 @@ ISSN: /sources/issn:2167-8359
 
 ## Links
 
-Docs: https://docs.openalex.org
+Docs: https://developers.openalex.org
 API Key: https://openalex.org/settings/api
-OpenAPI Spec: https://docs.openalex.org/api-reference/openapi.json
+OpenAPI Spec: https://developers.openalex.org/api-reference/openapi.json
