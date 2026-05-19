@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from extraction.constants import DEFAULT_FILTER, YEAR_FLOOR
+from openalex_pipeline.extraction.constants import DEFAULT_FILTER
 
 
 class Settings(BaseSettings):

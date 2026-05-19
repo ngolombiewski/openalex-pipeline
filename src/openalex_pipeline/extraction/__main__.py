@@ -1,4 +1,4 @@
-"""Entry point for `python -m extraction`.
+"""Entry point for `python -m openalex_pipeline.extraction`.
 
 Wires Settings → run(); translates the returned RunSummary into an exit code.
 """
@@ -6,9 +6,6 @@ Wires Settings → run(); translates the returned RunSummary into an exit code.
 from __future__ import annotations
 
 import sys
-
-from extraction.config import Settings
-from extraction.runner import run
 
 
 def main() -> int:

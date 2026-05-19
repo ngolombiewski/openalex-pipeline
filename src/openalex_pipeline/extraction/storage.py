@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from extraction.config import Settings
-from extraction.types import YearMeta
+from openalex_pipeline.extraction.config import Settings
+from openalex_pipeline.extraction.types import YearMeta
 
 
 def initialize_year(settings: Settings, year: int, meta: YearMeta) -> None:
@@ -32,8 +32,8 @@ def initialize_year(settings: Settings, year: int, meta: YearMeta) -> None:
         settings: provides output_dir.
         year: the publication year.
         meta: the YearMeta to record. expected_count comes from the API's
-            first response; filter comes from settings.filter; started_at
-            is the current UTC time (caller's responsibility).
+            first response; filter is the effective per-year API filter;
+            started_at is the current UTC time (caller's responsibility).
 
     Raises:
         ValueError: an existing _META.json disagrees with `meta`. Indicates
@@ -49,6 +49,8 @@ def write_page(
     page_number: int,
     records: list[dict],
     next_cursor: str | None,
+    *,
+    overwrite: bool = False,
 ) -> None:
     """Write a page to disk and update _CURSOR atomically.
 
@@ -59,23 +61,54 @@ def write_page(
        next_cursor is None, marking the year ready for finalize_year).
 
     Page-write-then-cursor-write order: a crash between steps 2 and 3
-    leaves the cursor pointing at the just-written page, causing a benign
-    re-fetch on resume (M5). The reverse order would lose data.
+    leaves the cursor pointing at the just-written page. On resume, the
+    runner detects this by comparing ordered work IDs against the last page
+    on disk and calls this function with overwrite=True for that page (M5).
+    The reverse order would lose data.
 
     Args:
         settings: provides output_dir.
         year: the publication year directory to write into.
-        page_number: 1-indexed page number. Must equal (existing pages + 1);
-            the caller (runner) is responsible for tracking this.
+        page_number: 1-indexed page number. Must equal (existing pages + 1)
+            unless overwrite=True, in which case it must refer to an existing
+            page being replaced after stale-cursor detection.
         records: the work dicts from the API, without _extracted_at. This
-            function injects _extracted_at at write time.
+            function injects _extracted_at at write time. May be empty for
+            a valid zero-result year; in that case an empty JSONL file is
+            still written so _META.json has a first page counterpart (M2).
         next_cursor: cursor for the next page, or None if this is the last
             page of the year.
+        overwrite: whether to replace an existing page file. Only used for
+            M5 stale-cursor recovery after the runner has verified ordered
+            work IDs match the last page on disk.
 
     Raises:
-        FileExistsError: page_NNNNN.jsonl already exists. Indicates a bug
-            in the runner (page numbering should be monotonic).
+        FileExistsError: page_NNNNN.jsonl already exists and overwrite=False.
+            Indicates a bug in the runner (page numbering should be monotonic).
         OSError: filesystem error (disk full, permissions, etc.).
+    """
+    ...
+
+
+def read_page_work_ids(settings: Settings, year: int, page_number: int) -> list[str]:
+    """Read ordered OpenAlex work IDs from one page file.
+
+    Used by the runner for M5 stale-cursor detection. The comparison is
+    deliberately based on ordered IDs, not full record equality, because
+    records are stamped with _extracted_at at write time.
+
+    Args:
+        settings: provides output_dir.
+        year: the publication year directory to read from.
+        page_number: 1-indexed page number to inspect.
+
+    Returns:
+        Ordered `id` values from the JSONL records in the page. For a valid
+        zero-result page this returns an empty list.
+
+    Raises:
+        FileNotFoundError: page_NNNNN.jsonl does not exist.
+        ValueError: a line is malformed JSON or a record lacks `id`.
     """
     ...
 

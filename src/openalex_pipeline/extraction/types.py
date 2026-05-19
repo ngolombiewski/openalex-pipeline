@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,9 @@ class Page:
     Attributes:
         records: the list of work dicts as returned by OpenAlex. Records
             do NOT yet have the _extracted_at stamp (M9); that is injected
-            by storage.write_page() at write time.
+            by storage.write_page() at write time. May be empty only for a
+            valid zero-result response where meta_count is 0 and next_cursor
+            is None.
         meta_count: the meta.count value from the response. Used for both
             populating YearMeta.expected_count on the first page and for
             M6 drift detection on resume.
@@ -62,7 +65,9 @@ class ResumeTarget:
     Attributes:
         year: the publication year to process next.
         next_page_number: 1-indexed page number to assign to the next page
-            written. For a fresh year, this is 1.
+            written. For a fresh year, this is 1. On resume, the runner may
+            overwrite next_page_number - 1 instead if M5 detects a stale
+            cursor by comparing ordered work IDs against the last page file.
         next_cursor: the cursor value to send to the API. "*" for fresh
             starts; the contents of _CURSOR when resuming.
         existing_meta: the YearMeta loaded from _META.json if resuming, or
@@ -78,18 +83,43 @@ class ResumeTarget:
 
 
 @dataclass(frozen=True)
+class RecoverableYearState:
+    """A corrupted but recoverable year state found by scan().
+
+    scan() is read-only. When it finds a state that should be recovered by
+    deleting the affected year directory and restarting the year, it returns
+    this value inside ResumePlan instead of mutating the filesystem itself.
+
+    Attributes:
+        year: the publication year with recoverable state.
+        reason: stable reason code for logs/tests, e.g. "missing_cursor",
+            "orphan_meta", or "orphan_pages".
+        action: recovery action for the runner. Currently only
+            "discard_year" is supported.
+    """
+
+    year: int
+    reason: str
+    action: Literal["discard_year"]
+
+
+@dataclass(frozen=True)
 class ResumePlan:
     """Output of scan(). Tells the runner where to start and what to skip.
 
     Attributes:
         target: the year to resume or start, or None if everything in the
             current run's year range is already complete.
+        recovery: recoverable corrupted state to handle before processing
+            target. scan() never performs the recovery itself; run() calls
+            storage.discard_year() and then treats the year as a fresh start.
         completed_years: years with valid _SUCCESS whose filter has been
-            verified to match the current run's filter (M8). The runner
-            skips these.
+            verified to match the current run's effective per-year filter
+            (M8). The runner skips these.
     """
 
     target: ResumeTarget | None
+    recovery: RecoverableYearState | None
     completed_years: frozenset[int]
 
 

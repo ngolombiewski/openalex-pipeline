@@ -23,20 +23,22 @@ class HTTPError(ExtractionError):
 
 
 class CreditsExhausted(HTTPError):
-    """OpenAlex returned 429: daily credit limit reached.
+    """OpenAlex returned 429: assumed daily credit limit reached.
 
     Treated by the runner as a clean stop signal (return summary with
     stopped_reason="credits_exhausted", exit 0). Not retryable within
-    the same run; resume tomorrow.
+    the same run; resume tomorrow. This mapping is based on current EDA and
+    may be adjusted if production API behavior differs.
     """
 
 
 class RateLimited(HTTPError):
-    """OpenAlex returned 403: sub-second burst rate limit.
+    """OpenAlex returned 403: assumed sub-second burst rate limit.
 
     Transient. request_page() retries with exponential backoff internally.
     Only escapes if max_retries is exhausted, in which case it propagates
-    as fatal.
+    as fatal. This mapping is based on current EDA and may be adjusted if
+    production API behavior differs.
     """
 
 
@@ -120,7 +122,7 @@ class FilterScopeMismatch(ExtractionError):
 
     Attributes:
         year: the publication year with the mismatched filter.
-        expected: the current run's filter.
+        expected: the current run's effective per-year API filter.
         observed: the filter recorded in the year's _META.json.
     """
 
@@ -138,15 +140,14 @@ class CorruptedYearState(ExtractionError):
     """M2/M3/M4 violation: a year directory is in an inconsistent state.
 
     Raised by scan() when it encounters an in-progress year that cannot be
-    cleanly resumed. Recovery policy depends on the specific violation:
+    cleanly resumed and should not be automatically discarded.
 
-    - M2 (orphan page or orphan _META.json): auto-recover by deleting the
-      orphan and restarting the year. scan() handles this transparently;
-      this exception is only raised in the harder cases below.
-    - M3 (in-progress year missing _CURSOR): auto-recover by discarding
-      the year directory and restarting. scan() handles this transparently.
-    - M4 (page-numbering gap): raised as fatal. Signals tampering or
-      filesystem corruption we don't understand; manual intervention.
+    Recoverable crash states such as orphan _META.json, orphan page files,
+    or a missing _CURSOR are returned by scan() as RecoverableYearState
+    inside ResumePlan. scan() remains read-only; run() performs any discard.
+
+    M4 page-numbering gaps are fatal and use this exception. They signal
+    tampering or filesystem corruption we don't understand.
 
     Attributes:
         year: the publication year with the corruption.

@@ -30,15 +30,15 @@ Out of scope:
 The module is an **idempotent, resumable job** invoked daily until the full CS corpus is on disk.
 
 - On startup: scan the output tree, determine the resume target year and page, resume from that point.
-- On HTTP 429 (daily credits exhausted): stop cleanly, log final state, exit 0. Expected outcome, not an error.
-- On HTTP 403 (sub-second burst rate limit): exponential backoff, retry up to `MAX_RETRIES`. Treated as transient.
+- On HTTP 429 (assumed daily credits exhausted, based on current EDA): stop cleanly, log final state, exit 0. Expected outcome, not an error.
+- On HTTP 403 (assumed sub-second burst rate limit, based on current EDA): exponential backoff, retry up to `MAX_RETRIES`. Treated as transient.
 - On HTTP 5xx, timeout, connection reset: exponential backoff, retry up to `MAX_RETRIES`.
 - On HTTP 4xx other than 403/429: fail loudly. Likely a configuration bug.
 - On count drift detected at resume (see invariants): discard the affected year directory and restart that year cleanly within the same run.
 - On count reconciliation failure at year completion: fail loudly, no `_SUCCESS` marker written, manual intervention required.
 - On re-run after any clean stop: no flags needed. "Do what's left" is the default behavior.
 
-Year processing order is ascending from a fixed floor (1950) up to `datetime.now().year` evaluated per-invocation. The current year is a partial snapshot by design; re-running on a later date will backfill its tail automatically via the same resume logic. Pre-1950 CS publications are scarce and treated as out of scope.
+Year processing order is ascending over a structured year range setting. By default this is 1950 up to `datetime.now().year`, evaluated per invocation. The current year is treated like any other completed snapshot: once `_SUCCESS` exists, the module skips it. A later refresh of the current year is an explicit operator action, such as deleting that year directory or marker. Pre-1950 CS publications are scarce and treated as out of scope by the default year range.
 
 ## Data Layout
 
@@ -57,7 +57,7 @@ data/raw/works/
 
 - One directory per `publication_year`.
 - Pagination is per-year (one cursor walk per year), not global. Year is a natural shard, aligns with the BigQuery partitioning downstream, and bounds the impact of any single failure.
-- Each page is a JSONL file containing up to 200 records.
+- Each page is a JSONL file containing up to 200 records. A valid zero-result year writes an empty `page_00001.jsonl` so M2 remains true.
 - `_META.json` contents (minimal):
 
   ```json
@@ -91,13 +91,13 @@ Each invariant exists to prevent a specific failure mode. The naming convention 
 
 **M4 — Page numbering contiguity.** Page files in a year are numbered contiguously from `page_00001.jsonl`. Gaps indicate manual tampering or filesystem corruption; the affected year is treated as corrupted and surfaces an error.
 
-**M5 — Cursor staleness bound.** `_CURSOR` may be stale by at most one page (cursor pointing to the most recently written page rather than the one after). This is the documented expected state after a crash between page write and cursor write. Recovery is automatic and self-healing: re-fetching the same page produces an identical result, gets written again, life goes on. Staleness by more than one indicates a bug.
+**M5 — Cursor staleness bound.** `_CURSOR` may be stale by at most one page (cursor pointing to the most recently written page rather than the one after). This is the expected state after a crash between page write and cursor write. On resuming an in-progress year, the runner fetches the page indicated by `_CURSOR`, compares the ordered work IDs in that fetched page to the ordered work IDs in the last page file already on disk, and if they match treats the cursor as stale-by-one. In that case it overwrites the last page file instead of appending a new page. If the ordered IDs do not match, the fetched page is appended as the next page. Staleness by more than one is not recoverable by cursor inspection and will surface through reconciliation or a later invariant violation.
 
-**M6 — Drift detection (primary).** On resuming an in-progress year, the first response's `meta.count` is checked against `_META.json.expected_count`. Mismatch indicates the underlying dataset has shifted between the original pull and the resume; recovery is to discard the year directory contents and restart with a fresh `cursor=*`, within the same run.
+**M6 — Drift detection (primary).** On resuming an in-progress year, the first response's `meta.count` is checked against `_META.json.expected_count`. Mismatch indicates the underlying dataset has shifted and the cursor has become stale; recovery is to discard the year directory contents and restart with a fresh `cursor=*`, within the same run.
 
 **M7 — Count reconciliation (secondary).** At year completion, the sum of records across all page files must equal `_META.json.expected_count`. Mismatch — which can only occur from drift *within* a single contiguous run — fails loudly, blocks `_SUCCESS`, and requires manual intervention.
 
-**M8 — Filter scope consistency.** Any year directory with `_SUCCESS` must have `_META.json.filter` matching the current run's filter. The scan step validates this for the prefix of completed years; the runner validates it lazily for any subsequent completed year it iterates past. Mismatch is a loud failure (refusal to mix data from different filter scopes).
+**M8 — Filter scope consistency.** Any year directory with `_SUCCESS` must have `_META.json.filter` matching the current run's effective per-year API filter, including the year predicate (for example, `primary_topic.field.id:17,publication_year:1980`). The scan step validates this for the prefix of completed years; the runner validates it lazily for any subsequent completed year it iterates past. Mismatch is a loud failure (refusal to mix data from different filter scopes).
 
 **M9 — Snapshot stamp.** Each record, at write time, gets an `_extracted_at` field (ISO 8601 UTC timestamp) injected into the JSON before serialization. This is the per-record snapshot column. The API's `updated_date` field is included in the select list but serves a distinct purpose (record version, not fetch time).
 
@@ -108,15 +108,15 @@ Each invariant exists to prevent a specific failure mode. The naming convention 
 The module is organized as a set of files containing module-level functions, plus value types (frozen dataclasses) and one configuration class (`Settings`, structurally required by pydantic-settings). No classes are introduced for the operational units — each was evaluated against three criteria (cross-method state, multiple instances, multiple implementations) and none met them. See § Design Notes below for the reasoning.
 
 ```
-extraction/
+src/openalex_pipeline/extraction/
   __init__.py
-  __main__.py          # `python -m extraction` → main() → run(Settings())
+  __main__.py          # `python -m openalex_pipeline.extraction` -> main() -> run(Settings())
   config.py            # Settings
   constants.py         # SELECT_FIELDS, DEFAULT_FILTER, YEAR_FLOOR, OPENALEX_BASE_URL
   errors.py            # exception hierarchy
-  types.py             # Page, YearMeta, ResumeTarget, ResumePlan, YearOutcome, RunSummary
+  types.py             # Page, YearMeta, ResumeTarget, RecoverableYearState, ResumePlan, YearOutcome, RunSummary
   http.py              # request_page()
-  storage.py           # initialize_year, write_page, finalize_year, discard_year
+  storage.py           # initialize_year, write_page, read_page_work_ids, finalize_year, discard_year
   scan.py              # scan()
   runner.py            # run(), _process_year()
 ```
@@ -126,17 +126,17 @@ extraction/
 - **config.py — Settings.** pydantic-settings config object loaded once from environment. Pure data; no methods beyond validation and `resolved_year_range()`.
 - **constants.py.** Module-level constants enforcing M10 and pinning operational defaults.
 - **errors.py.** Exception hierarchy. See § Error Taxonomy.
-- **types.py.** Frozen dataclasses for values passed between functions: `Page`, `YearMeta`, `ResumeTarget`, `ResumePlan`, `YearOutcome`, `RunSummary`.
+- **types.py.** Frozen dataclasses for values passed between functions: `Page`, `YearMeta`, `ResumeTarget`, `RecoverableYearState`, `ResumePlan`, `YearOutcome`, `RunSummary`.
 - **http.py — `request_page()`.** Issues one HTTP GET for a given filter + cursor, parses the response, returns a `Page` or raises a typed exception. Owns the retry loop for transient failures (403, 5xx, timeout). Knows nothing about cursors, pages, years, or files beyond passing them through. The HTTP wire is the test seam (mocked via `responses` library), not the Python boundary.
-- **storage.py.** All filesystem mutation lives here. Functions: `initialize_year(settings, year, meta)`, `write_page(settings, year, page_number, records, next_cursor)`, `finalize_year(settings, year)`, `discard_year(settings, year)`. Concentrates M1, M2, M3, M5, M7, M9.
-- **scan.py — `scan()`.** Walks year directories ascending, validates each completed year's filter (M8), returns a `ResumePlan`. Performs no writes.
-- **runner.py — `run()`, `_process_year()`.** `run()` is the public entry point: calls `scan()`, iterates years from the resume target, handles `CreditsExhausted` as a clean stop, handles `DriftDetected` as a single-attempt year restart. `_process_year()` encapsulates one year's worth of work (drift check on first response, cursor walk, finalization). The Mn invariants enforced at the loop level: M6 (drift check), M8 (lazy filter validation as years are iterated past).
+- **storage.py.** All filesystem mutation lives here. Functions: `initialize_year(settings, year, meta)`, `write_page(settings, year, page_number, records, next_cursor, overwrite=False)`, `read_page_work_ids(settings, year, page_number)`, `finalize_year(settings, year)`, `discard_year(settings, year)`. Concentrates M1, M2, M3, M5, M7, M9.
+- **scan.py — `scan()`.** Walks year directories ascending, validates each completed year's filter (M8), returns a `ResumePlan`. Performs no writes. Recoverable crash states are reported through `ResumePlan.recovery`; fatal corruption still raises.
+- **runner.py — `run()`, `_process_year()`.** `run()` is the public entry point: calls `scan()`, handles any `ResumePlan.recovery` by discarding the affected year before processing, iterates years from the resume target, handles `CreditsExhausted` as a clean stop, handles `DriftDetected` as a single-attempt year restart. `_process_year()` encapsulates one year's worth of work (drift check on first response, stale-cursor page comparison, cursor walk, finalization). The Mn invariants enforced at the loop level: M5 (stale-cursor recovery), M6 (drift check), M8 (lazy filter validation as years are iterated past).
 
 ## Error Taxonomy
 
 The HTTP layer raises typed exceptions. The runner decides what to do about each. There is no central error handler; errors travel through the normal call stack as values.
 
-| Exception | Origin | Runner policy |
+| Signal | Origin | Runner policy |
 |---|---|---|
 | `CreditsExhausted` | HTTP 429 | Stop cleanly, log, return summary with `stopped_reason="credits_exhausted"`. |
 | `RateLimited` | HTTP 403 | Exponential backoff in `request_page`; only escapes after retries exhausted, then propagates as fatal. |
@@ -146,9 +146,10 @@ The HTTP layer raises typed exceptions. The runner decides what to do about each
 | `DriftDetected` | M6 mismatch on resume | Caught by runner; discard year directory, restart year once within the same run. Second drift on the same year propagates as fatal. |
 | `ReconciliationFailed` | M7 mismatch at year end | Propagate. Loud failure, no `_SUCCESS`. |
 | `FilterScopeMismatch` | M8 mismatch | Propagate. Loud failure. |
-| `CorruptedYearState` | M2/M3/M4 unrecoverable | Propagate (M4) or auto-recover (M2/M3 orphans). |
+| `CorruptedYearState` | M4 or other unrecoverable state | Propagate. |
+| `RecoverableYearState` | M2/M3 recoverable crash state | Returned by `scan()` inside `ResumePlan`; runner calls `discard_year()` and restarts that year. |
 
-`request_page` never returns `None`, `[]`, or any sentinel value. It either returns a valid `Page` or raises. This is a structural defense against the silent-skip failure mode that plagued the official CLI tool.
+`request_page` never returns `None` or any sentinel value. It either returns a valid `Page` or raises. `Page.records` may be an empty list only for a valid zero-result response with `meta.count == 0` and no next cursor. This is a structural defense against the silent-skip failure mode that plagued the official CLI tool.
 
 ## Configuration Surface
 
@@ -164,7 +165,7 @@ All configuration via environment variables, loaded once into a `Settings` objec
 | `OPENALEX_MAX_RETRIES` | Retries on transient errors (403, 5xx, timeout). | 5 |
 | `OPENALEX_LOG_LEVEL` | loguru level. | `INFO` |
 
-Development sampling is achieved by overriding `OPENALEX_FILTER` and/or `OPENALEX_YEAR_RANGE`, not by introducing a separate code path.
+Development sampling is achieved by overriding `OPENALEX_FILTER` and/or `OPENALEX_YEAR_RANGE`, not by introducing a separate code path. The runner combines the base filter and each year into an effective per-year API filter by appending `publication_year:{year}`. That effective filter is what gets written to `_META.json`.
 
 ## Observability
 
@@ -210,7 +211,7 @@ If during implementation any unit acquires genuine cross-method state (e.g., a r
 
 The official CLI tool's silent-skip bug — where 429 responses were logged as errors but recorded as successes in the checkpoint file — was caused by a function returning `None` (or similar) on failure, which the caller couldn't distinguish from success. The structural fix is to make the failure path a different *type* of return, not a different value. Python's exception mechanism provides this: a function either returns a valid result or raises. There is no third state to misinterpret.
 
-This is why `request_page` is documented as "never returns None or empty Page" — it's not a comment, it's a contract that the test suite verifies.
+This is why `request_page` is documented as "never returns None" — it's not a comment, it's a contract that the test suite verifies. Empty records are valid only for a real zero-result API response.
 
 ### Why `_META.json` is write-once
 

@@ -17,8 +17,8 @@ from functools import lru_cache
 
 import requests
 
-from extraction.config import Settings
-from extraction.types import Page
+from openalex_pipeline.extraction.config import Settings
+from openalex_pipeline.extraction.types import Page
 
 
 def request_page(settings: Settings, filter: str, cursor: str) -> Page:
@@ -50,8 +50,9 @@ def request_page(settings: Settings, filter: str, cursor: str) -> Page:
 
     Guarantee:
         Either returns a fully-populated Page or raises. Never returns
-        None, an empty Page, or any other sentinel. This is a structural
-        defense against the silent-skip failure mode.
+        None or any other sentinel. Empty records are valid only for a real
+        zero-result response where meta_count is 0 and next_cursor is None.
+        This is a structural defense against the silent-skip failure mode.
     """
     ...
 
