@@ -46,7 +46,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from .models import YearOutcome
+from . import storage
+from .models import YearOutcome, YearState
 
 # Signature of the injected connector: (query, cursor, api_key) -> (records,
 # next_cursor, meta_count). See connector.fetch_page.
@@ -81,4 +82,31 @@ def process_year(
         DailyLimitReached, RetryExhausted,
         NonRetryableError:                          from fetch_page, propagated.
     """
-    raise NotImplementedError
+    status = storage.classify_year(root, year, query)
+
+    if status.state is YearState.COMPLETE:
+        return YearOutcome(
+            year=year,
+            status="skipped",
+            report=storage.read_year_report(root, year),
+        )
+
+    if status.state is YearState.FRESH:
+        records, next_cursor, meta_count = fetch_page(query, "*", api_key)
+        storage.initialize_year(root, year, query, meta_count)
+        storage.write_page(root, year, records, next_cursor, 1)
+        cursor, page_number = next_cursor, 2
+    else:  # IN_PROGRESS; next_page is guaranteed populated by classify_year.
+        assert status.next_page is not None
+        cursor, page_number = status.cursor, status.next_page
+
+    while cursor is not None:
+        records, next_cursor, _ = fetch_page(query, cursor, api_key)
+        storage.write_page(root, year, records, next_cursor, page_number)
+        cursor, page_number = next_cursor, page_number + 1
+
+    return YearOutcome(
+        year=year,
+        status="completed",
+        report=storage.finalize_year(root, year),
+    )

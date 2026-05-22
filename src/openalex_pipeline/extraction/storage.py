@@ -1,15 +1,16 @@
 """Storage layer: all filesystem I/O for the extraction module.
 
 The filesystem is the source of truth. The worker knows only pages, the cursor,
-and abstract year state; it never touches files directly. Four public functions
+and abstract year state; it never touches files directly. Five public functions
 form the entire contract:
 
     classify_year    -- read disk, return the year's state (+ resume pointer)
     initialize_year  -- create a fresh year directory's metadata
     write_page       -- persist one page + advance the cursor
     finalize_year    -- write and return the completion report
+    read_year_report -- read and return the completion report (skip path)
 
-All four take ``root: Path, year: int`` as their first two arguments.
+All five take ``root: Path, year: int`` as their first two arguments.
 
 On-disk layout for one year::
 
@@ -36,9 +37,77 @@ INVARIANTS enforced here:
 
 from __future__ import annotations
 
+import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 
-from .models import YearReport, YearStatus
+from .exceptions import CorruptedState, QueryMismatch
+from .models import YearReport, YearState, YearStatus
+
+_META_FILE = "_META.json"
+_CURSOR_FILE = "_CURSOR.json"
+_REPORT_FILE = "_YEAR_REPORT.json"
+_PAGE_GLOB = "page-*.jsonl"
+
+
+def _year_dir(root: Path, year: int) -> Path:
+    return root / str(year)
+
+
+def _page_path(year_dir: Path, page_number: int) -> Path:
+    return year_dir / f"page-{page_number:04d}.jsonl"
+
+
+def _list_pages(year_dir: Path) -> list[Path]:
+    return sorted(year_dir.glob(_PAGE_GLOB))
+
+
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+
+def _atomic_write_json(path: Path, obj: object) -> None:
+    _atomic_write_bytes(path, json.dumps(obj).encode("utf-8"))
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CorruptedState(f"could not read {path}: {exc}") from exc
+
+
+def _count_lines(path: Path) -> int:
+    return path.read_bytes().count(b"\n")
+
+
+def _inspect_layout(year_dir: Path) -> set[str]:
+    """Return which recognized markers exist in the year directory.
+
+    Subset of {"meta", "cursor", "report", "pages"}. Empty set means the
+    directory is missing or holds none of the four. Unrecognized files are
+    ignored (the module does not guard against external tampering).
+    """
+    if not year_dir.exists():
+        return set()
+    present: set[str] = set()
+    if (year_dir / _META_FILE).is_file():
+        present.add("meta")
+    if (year_dir / _CURSOR_FILE).is_file():
+        present.add("cursor")
+    if (year_dir / _REPORT_FILE).is_file():
+        present.add("report")
+    if any(year_dir.glob(_PAGE_GLOB)):
+        present.add("pages")
+    return present
 
 
 def classify_year(root: Path, year: int, query: str) -> YearStatus:
@@ -63,7 +132,45 @@ def classify_year(root: Path, year: int, query: str) -> YearStatus:
         CorruptedState:  any other file combination, or a structurally invalid
                          _META.json / _CURSOR.json needed for IN_PROGRESS.
     """
-    raise NotImplementedError
+    year_dir = _year_dir(root, year)
+    layout = _inspect_layout(year_dir)
+
+    if not layout:
+        return YearStatus(state=YearState.FRESH)
+
+    # _YEAR_REPORT.json is the authoritative completion signal; it wins over
+    # any other files present (stale cursor, etc.).
+    if "report" in layout:
+        report = _read_json(year_dir / _REPORT_FILE)
+        if report.get("query") != query:
+            raise QueryMismatch(
+                f"year {year}: stored query {report.get('query')!r} "
+                f"!= current query {query!r}"
+            )
+        return YearStatus(state=YearState.COMPLETE)
+
+    if layout == {"meta", "cursor", "pages"}:
+        meta = _read_json(year_dir / _META_FILE)
+        if meta.get("query") != query:
+            raise QueryMismatch(
+                f"year {year}: stored query {meta.get('query')!r} "
+                f"!= current query {query!r}"
+            )
+        cursor_doc = _read_json(year_dir / _CURSOR_FILE)
+        next_page = cursor_doc.get("next_page")
+        if not isinstance(next_page, int):
+            raise CorruptedState(
+                f"year {year}: _CURSOR.json next_page invalid: {next_page!r}"
+            )
+        return YearStatus(
+            state=YearState.IN_PROGRESS,
+            cursor=cursor_doc.get("cursor"),
+            next_page=next_page,
+        )
+
+    raise CorruptedState(
+        f"year {year}: invalid file combination: {sorted(layout)!r}"
+    )
 
 
 def initialize_year(root: Path, year: int, query: str, meta_count: int) -> None:
@@ -80,7 +187,19 @@ def initialize_year(root: Path, year: int, query: str, meta_count: int) -> None:
     Returns:
         None.
     """
-    raise NotImplementedError
+    year_dir = _year_dir(root, year)
+    _atomic_write_json(
+        year_dir / _META_FILE,
+        {
+            "query": query,
+            "expected_count": meta_count,
+            "started_at": _now_utc(),
+        },
+    )
+    _atomic_write_json(
+        year_dir / _CURSOR_FILE,
+        {"cursor": "*", "next_page": 1},
+    )
 
 
 def write_page(
@@ -110,7 +229,13 @@ def write_page(
     Returns:
         None.
     """
-    raise NotImplementedError
+    year_dir = _year_dir(root, year)
+    payload = b"".join(json.dumps(r).encode("utf-8") + b"\n" for r in records)
+    _atomic_write_bytes(_page_path(year_dir, page_number), payload)
+    _atomic_write_json(
+        year_dir / _CURSOR_FILE,
+        {"cursor": next_cursor, "next_page": page_number + 1},
+    )
 
 
 def finalize_year(root: Path, year: int) -> YearReport:
@@ -131,4 +256,57 @@ def finalize_year(root: Path, year: int) -> YearReport:
     Returns:
         YearReport: the same report written to _YEAR_REPORT.json.
     """
-    raise NotImplementedError
+    year_dir = _year_dir(root, year)
+    meta = _read_json(year_dir / _META_FILE)
+    pages = _list_pages(year_dir)
+    records_fetched = sum(_count_lines(p) for p in pages)
+    expected_count = meta["expected_count"]
+    report = YearReport(
+        query=meta["query"],
+        year=year,
+        started_at=meta["started_at"],
+        completed_at=_now_utc(),
+        expected_count=expected_count,
+        records_fetched=records_fetched,
+        page_count=len(pages),
+        count_mismatch=records_fetched != expected_count,
+    )
+    _atomic_write_json(
+        year_dir / _REPORT_FILE,
+        {
+            "query": report.query,
+            "year": report.year,
+            "started_at": report.started_at,
+            "completed_at": report.completed_at,
+            "expected_count": report.expected_count,
+            "records_fetched": report.records_fetched,
+            "page_count": report.page_count,
+            "count_mismatch": report.count_mismatch,
+        },
+    )
+    return report
+
+
+def read_year_report(root: Path, year: int) -> YearReport:
+    """Read _YEAR_REPORT.json and return it as a YearReport.
+
+    Called by the worker on the COMPLETE skip path to hydrate the YearOutcome
+    for a year that completed in a previous invocation. Pairs with
+    finalize_year (write/read symmetry).
+
+    Precondition: the year is COMPLETE (callers already classified it).
+
+    Returns:
+        YearReport: parsed from _YEAR_REPORT.json verbatim.
+    """
+    data = _read_json(_year_dir(root, year) / _REPORT_FILE)
+    return YearReport(
+        query=data["query"],
+        year=data["year"],
+        started_at=data["started_at"],
+        completed_at=data["completed_at"],
+        expected_count=data["expected_count"],
+        records_fetched=data["records_fetched"],
+        page_count=data["page_count"],
+        count_mismatch=data["count_mismatch"],
+    )
