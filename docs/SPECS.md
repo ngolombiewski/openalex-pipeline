@@ -12,20 +12,16 @@
 
 ## Data Source
 
-OpenAlex works entity (~14.7 M CS works). Key gotchas:
-- `cited_by_count` is cumulative, not time-resolved — half-life requires approximation
-- Topics endpoint only, Concepts is deprecated
-- Scale: filter to one year for development, full pull for production
+OpenAlex works entity for CS field (~14.7 M works).
+Details in `docs/DATA_MODEL.md`.
+Docs in `docs/openalex-api-reference.md`.
 
 ## Pipeline Shape
 
 OpenAlex CLI -> JSON -> Polars -> Parquet -> GCS -> BigQuery -> dbt -> Streamlit
 
 Orchestrated by Dagster as software-defined assets.
-
-## TECH STACK
-
-See `docs/STACK.md`.
+Cloud infra managed with Terraform.
 
 ## Open Questions
 
