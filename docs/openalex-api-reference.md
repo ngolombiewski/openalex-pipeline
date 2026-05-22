@@ -49,7 +49,7 @@ api_key=YOUR_KEY - Required for rate limits
 filter= - Filter results (field:value)
 search= - Full-text search
 sort= - Sort field (e.g., cited_by_count:desc)
-per_page= - Results per page (max 100)
+per_page= - Results per page (max 200)
 page= - Page number
 cursor= - Deep pagination (use cursor=* to start)
 sample= - Random sample (max 10000)
