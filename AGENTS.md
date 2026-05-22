@@ -25,10 +25,6 @@ Prefer local docs over web search. Check `docs/` first:
 
 ## Current Status
 
-Designing the extraction module, destinations:
+Review design doc and stubs for the extraction module:
+- `docs/extraction-module-design.md`
 - `src/openalex_pipeline/extraction`
-- `tests/extraction`
-
-## AGENT MEMORY
-
-Your auto-memory feature is turned off. Append here everything that you feel you should remember in EVERY future session:
