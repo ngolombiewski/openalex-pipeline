@@ -142,7 +142,7 @@ class YearOutcome:
     report: YearReport
 ```
 
-For a COMPLETE, query-matched year, the worker reads `_YEAR_REPORT.json` and
+For a COMPLETE, query-matched year, the worker calls `read_year_report` and
 returns a `skipped` outcome. For a year completed during the current invocation,
 `finalize_year` writes and returns the report, and the worker returns a
 `completed` outcome.
@@ -153,9 +153,9 @@ partial run report.
 
 ## Storage Contract
 
-Four public functions. **`storage.py` (the stub) is authoritative for exact
+Five public functions. **`storage.py` (the stub) is authoritative for exact
 signatures**; the forms below omit the leading `root: Path, year: int` that all
-four take, as noise. Page-file numbering, atomic writes, and `tmp` files are
+five take, as noise. Page-file numbering, atomic writes, and `tmp` files are
 internal (`_write_pagefile`, `_write_cursor`, etc.) and not part of the
 contract.
 
@@ -178,7 +178,17 @@ write_page(records: list[dict], next_cursor: str | None, page_number: int) -> No
 finalize_year() -> YearReport
     # Reads _META.json, counts lines across all page files, writes
     # _YEAR_REPORT.json, and returns the report. completed_at generated inside.
+
+read_year_report() -> YearReport
+    # Reads _YEAR_REPORT.json and returns it. Called by the worker on the
+    # COMPLETE skip path to hydrate the YearOutcome.
 ```
+
+`read_year_report` pairs with `finalize_year` (write/read symmetry). The
+COMPLETE path of `classify_year` already opens `_YEAR_REPORT.json` for the
+query-mismatch check; reopening it once more in `read_year_report` is a
+deliberate trade for keeping `YearStatus` narrow (no `report` field meaningful
+only on COMPLETE).
 
 `YearStatus` is a small dataclass (not a bare enum — it must carry the resume
 pointer):
