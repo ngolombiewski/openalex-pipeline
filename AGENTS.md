@@ -25,6 +25,7 @@ Prefer local docs over web search. Check `docs/` first:
 
 ## Current Status
 
-Review design doc and stubs for the extraction module:
+TODO:
+Review the test suite in `tests/extraction` against the design doc and contracts:
 - `docs/extraction-module-design.md`
 - `src/openalex_pipeline/extraction`
