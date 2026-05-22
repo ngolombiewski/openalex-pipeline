@@ -6,10 +6,13 @@ Treat **invariants** and **contracts** as binding; everything else is rationale.
 
 ## Scope
 
-Extract OpenAlex `works` for the CS field, land verbatim as JSONL (one file per
-API page) on local disk. Raw extraction only — no transformation. Idempotent,
-resumable, manually invoked once per day until the full subset is on disk.
-Downstream (Polars → Parquet → GCS → BigQuery) is out of scope.
+Extract OpenAlex `works` for the CS field, land raw records as JSONL (one file
+per API page) on local disk. Raw extraction only — no per-record transformation.
+Idempotent, resumable, manually invoked once per day until the full subset is on
+disk. Downstream (Polars → Parquet → GCS → BigQuery) is out of scope.
+
+Bronze-only columns such as `_extracted_at` are added later during the JSONL →
+Parquet bronze materialization step, not by this module.
 
 Guiding principles: **simplicity and specificity**. This is a pipeline-specific
 module, not a general extraction tool. Cheap abstractions with no downside are
@@ -35,7 +38,7 @@ disk — **the filesystem is the source of truth**.
 | Unit | Form | Responsibility |
 |---|---|---|
 | `Settings` | Pydantic `BaseSettings` | Config from env vars only. Key params (API key, query params) required. |
-| runner | `run()` | Builds query, loops years, invokes worker for every year, aggregates run report. |
+| runner | `run()` | Builds canonical query, loops years, invokes worker for every year, aggregates run report. |
 | worker | `process_year()` | Paginates one year shard. State machine. Where the real work is. |
 | connector | `fetch_page()` | The single API call + retry/backoff. Primary test seam, injected as a closure. |
 | storage | `storage.py` | All filesystem I/O. Four public functions; classification logic for the worker. |
@@ -46,13 +49,13 @@ disk — **the filesystem is the source of truth**.
 {root}/{year}/
   _META.json          # immutable; written first for a fresh year
   _CURSOR.json        # mutable; resume pointer
-  page-0001.jsonl     # one file per API page, 200 records each (fewer only in tests)
+  page-0001.jsonl     # one file per API page, 200 records max (fewer on last page/tests)
   page-0002.jsonl
   ...
   _YEAR_REPORT.json   # written last; its existence = year complete
 ```
 
-No `_SUCCESS` marker. A valid `_YEAR_REPORT.json` is the authoritative
+No `_SUCCESS` marker. The presence of `_YEAR_REPORT.json` is the authoritative
 completion signal.
 
 ## Year State Machine
@@ -65,13 +68,14 @@ it always invokes the worker, which returns immediately for a complete year.
 |---|---|
 | **FRESH** | Directory missing or empty |
 | **IN_PROGRESS** | `_META.json` + `_CURSOR.json` + ≥1 page file; no `_YEAR_REPORT.json` |
-| **COMPLETE** | IN_PROGRESS files + valid `_YEAR_REPORT.json` |
+| **COMPLETE** | `_YEAR_REPORT.json` present |
 
 Any other combination → **corrupted → loud failure** (`CorruptedState`).
 
-Query-match (`_META.query` == current run's query) is checked by `classify_year`
-for any non-fresh year; mismatch → `QueryMismatch`. A year treated as complete
-is therefore both COMPLETE *and* query-matched.
+Query-match is checked by `classify_year` for any non-fresh year; mismatch →
+`QueryMismatch`. For FRESH/IN_PROGRESS states, the stored query comes from
+`_META.json`. For COMPLETE, the stored query comes from `_YEAR_REPORT.json`, so
+completion does not depend on `_CURSOR.json`.
 
 ### Finalize-pending sub-state
 
@@ -101,7 +105,7 @@ exactly once per run (at `classify_year`), then memory → disk repeatedly (each
 status = classify_year(root, year, query)
 
 if status.state == COMPLETE:
-    return  # skipped outcome
+    return  # skipped outcome, carrying the persisted _YEAR_REPORT fields
 
 if status.state == FRESH:
     records, next_cursor, meta_count = fetch_page(query, cursor="*", api_key=...)
@@ -116,7 +120,8 @@ while cursor is not None:
     write_page(root, year, records, next_cursor, page_number)
     cursor, page_number = next_cursor, page_number + 1
 
-finalize_year(root, year)
+report = finalize_year(root, year)
+return  # completed outcome, carrying report
 ```
 
 Ordering on the fresh path is pinned: `fetch_page → initialize_year →
@@ -125,6 +130,26 @@ this ordering means a `fetch_page` failure leaves nothing on disk to clean up.
 
 OpenAlex cursor mechanics: fresh year initializes `cursor="*"`; the API stops
 returning a cursor on the last page, normalized to `None`.
+
+The worker returns an in-memory `YearOutcome` for every handled year. This is an
+invocation outcome, not persistent state:
+
+```
+@dataclass
+class YearOutcome:
+    year: int
+    status: Literal["completed", "skipped"]
+    report: YearReport
+```
+
+For a COMPLETE, query-matched year, the worker reads `_YEAR_REPORT.json` and
+returns a `skipped` outcome. For a year completed during the current invocation,
+`finalize_year` writes and returns the report, and the worker returns a
+`completed` outcome.
+
+`DailyLimitReached` propagates out of the worker because the current year has no
+completed/skipped year outcome. The runner catches it so it can return the
+partial run report.
 
 ## Storage Contract
 
@@ -136,8 +161,9 @@ contract.
 
 ```
 classify_year(query: str) -> YearStatus
-    # Classifies the year directory. For non-fresh years, also checks
-    # _META.query == query.
+    # Classifies the year directory. For non-fresh years, also checks the
+    # stored query (_META.query for IN_PROGRESS, _YEAR_REPORT.query for
+    # COMPLETE) against query.
     # Raises: CorruptedState, QueryMismatch
 
 initialize_year(query: str, meta_count: int) -> None
@@ -149,9 +175,9 @@ write_page(records: list[dict], next_cursor: str | None, page_number: int) -> No
     # (next_cursor, page_number + 1). Write-only: reads nothing.
     # Always writes a page file, even when records is empty (see below).
 
-finalize_year() -> None
+finalize_year() -> YearReport
     # Reads _META.json, counts lines across all page files, writes
-    # _YEAR_REPORT.json. completed_at generated inside.
+    # _YEAR_REPORT.json, and returns the report. completed_at generated inside.
 ```
 
 `YearStatus` is a small dataclass (not a bare enum — it must carry the resume
@@ -192,15 +218,17 @@ fetch_page(query: str, cursor: str, api_key: str)
 ```
 
 - `query` — opaque string, the full query minus the `https://api.openalex.org/`
-  prefix and minus the API key, exactly as stored in `_META.json`. The connector
-  treats it as opaque; no structured form. Equality of this string is the
-  query-isolation invariant.
+  prefix, minus `cursor`, and minus the API key, exactly as stored in
+  `_META.json`. The runner builds this canonical string. The connector treats it
+  as opaque; no structured form. Equality of this string is the query-isolation
+  invariant.
 - `cursor` — passed separately (`"*"` for the first call). Not part of `query`
   in our nomenclature.
 - `api_key` — passed separately. A credential, **not** part of query identity;
   it must never be written into `_META.json`.
 - The connector assembles the URL: `https://api.openalex.org/{query}&cursor=
-  {cursor}` plus the key param.
+  {cursor}` plus the key param. The order in which the connector appends
+  `cursor` and API-key parameters is not part of query identity.
 - `records` is `list[dict]` — the response `results` array, parsed but
   otherwise untouched. No model, no per-record validation; bronze begins
   downstream. Note this implies a `json.loads` → (`write_page`) `json.dumps`
@@ -212,13 +240,38 @@ fetch_page(query: str, cursor: str, api_key: str)
 *inside* the real closure; the worker sees only clean returns or a typed raise.
 The connector raises only at fetch time — no in-flight on-disk state.
 
+## Query Construction
+
+`run()` constructs the canonical query string once per year. That exact string
+is stored in `_META.query` and used for query-isolation comparison. It excludes
+the host prefix, `cursor`, and API key.
+
+Canonical query shape:
+
+```
+works?filter=primary_topic.field.id:17,publication_year:{year}&select={columns}&per_page=200
+```
+
+`select` is required and is pinned to the bronze source columns from
+`docs/DATA_MODEL.md`:
+
+```
+id,title,publication_year,publication_date,type,language,is_retracted,
+is_paratext,primary_topic,topics,cited_by_count,counts_by_year,
+cited_by_percentile_year,citation_normalized_percentile,fwci,
+referenced_works_count,open_access,doi,ids,keywords,updated_date
+```
+
+The runner owns parameter order and filter order. The connector may append
+`cursor` and the API key in any order because neither is part of query identity.
+
 ## JSON Schemas
 
 ### `_META.json` — written once by `initialize_year`, immutable
 
 ```json
 {
-  "query": "works?filter=primary_topic.field.id:17,publication_year:2018&per_page=200",
+  "query": "works?filter=primary_topic.field.id:17,publication_year:2018&select=id,title,publication_year,publication_date,type,language,is_retracted,is_paratext,primary_topic,topics,cited_by_count,counts_by_year,cited_by_percentile_year,citation_normalized_percentile,fwci,referenced_works_count,open_access,doi,ids,keywords,updated_date&per_page=200",
   "expected_count": 148231,
   "started_at": "2026-05-22T09:14:03Z"
 }
@@ -238,7 +291,7 @@ The connector raises only at fetch time — no in-flight on-disk state.
 
 ```json
 {
-  "query": "works?filter=primary_topic.field.id:17,publication_year:2018&per_page=200",
+  "query": "works?filter=primary_topic.field.id:17,publication_year:2018&select=id,title,publication_year,publication_date,type,language,is_retracted,is_paratext,primary_topic,topics,cited_by_count,counts_by_year,cited_by_percentile_year,citation_normalized_percentile,fwci,referenced_works_count,open_access,doi,ids,keywords,updated_date&per_page=200",
   "year": 2018,
   "started_at": "2026-05-22T09:14:03Z",
   "completed_at": "2026-05-22T11:42:51Z",
@@ -260,9 +313,10 @@ single consumer; speculative).
 
 ## Invariants
 
-1. **Query isolation.** `_META.query` records the full query (minus host prefix,
-   minus API key). For any non-fresh year it must equal the current run's query
-   exactly; mismatch → `QueryMismatch`. Mixing queries corrupts data.
+1. **Query isolation.** `_META.query` records the full canonical query (minus
+   host prefix, minus cursor, minus API key). For any non-fresh year it must
+   equal the current run's canonical query exactly; mismatch → `QueryMismatch`.
+   Mixing queries corrupts data.
 2. **`_META.json` is immutable** once written, and written before the first
    page file.
 3. **Write order per page is fixed**: fetch → write `page-N` → update
@@ -270,7 +324,7 @@ single consumer; speculative).
 4. **Atomic writes**: tmp + flush + rename for every file. No `fsync` (too slow
    for the benefit at this scale).
 5. **`_YEAR_REPORT.json` is immutable** once written; its presence means
-   complete.
+   complete. COMPLETE does not require re-validating `_CURSOR.json`.
 6. **`write_page` always writes a page file**, even for an empty page (zero-byte
    file). "≥1 page file for any non-fresh year" must hold.
 7. **Corruption is loud.** The module manages only the files above. It does not
@@ -295,15 +349,30 @@ in `_YEAR_REPORT.json` (`expected_count`, `records_fetched`, `count_mismatch`).
 
 ## Run Report
 
-Built fresh each invocation by the runner: scan year directories, read each
-`_YEAR_REPORT.json`. Pure aggregation, no computation, no disk writes. Reports
-per-year status and surfaces count-mismatch warnings.
+Built fresh each invocation by the runner from worker outcomes. Pure
+aggregation, no disk writes. Reports per-year invocation status and surfaces
+count-mismatch warnings from persisted year reports.
 
-The worker is invoked for **every** year; a complete, query-matched year
-returns a "skipped" outcome immediately (a runtime log line, a `complete` entry
-in the run report). Nothing is written to disk for a skip. No re-verification
-of complete years — re-reading every page file of every done year on each run
-gets expensive once most years are done.
+The worker is invoked for **every** requested year. A complete, query-matched
+year returns a `skipped` outcome immediately, carrying the persisted
+`_YEAR_REPORT.json` fields. Nothing is written to disk for a skip. A year
+completed during the current invocation returns a `completed` outcome carrying
+the newly written year report.
+
+The persisted `_YEAR_REPORT.json` records durable year completion only. It does
+not record future skip events or invocation history.
+
+The runner catches `DailyLimitReached`, returns the partial in-memory report for
+all outcomes produced so far, records the year where the stop happened, and
+stops iterating. The worker does not catch `DailyLimitReached`.
+
+```
+@dataclass
+class RunReport:
+    outcomes: list[YearOutcome]
+    status: Literal["complete", "stopped_daily_limit"]
+    stopped_year: int | None = None
+```
 
 ## Error Handling
 
@@ -317,7 +386,7 @@ the fixed write order).
 | `301` | `NonRetryableError` (entity merged; should not occur for list queries) |
 | `403` | Exponential backoff + retry to `MAX_RETRIES`, then `RetryExhausted`. Subsecond-burst rate limit; not expected with `requests` (sync). |
 | `400`, `404`, other `4xx` | `NonRetryableError` |
-| `429` | **Clean stop.** Daily free-credit exhaustion — expected once/day. Connector raises `DailyLimitReached`; worker and runner let it propagate; caught only in `__main__`. Resume next day. |
+| `429` | **Clean stop.** Daily free-credit exhaustion — expected once/day. Connector raises `DailyLimitReached`; worker lets it propagate; runner catches it and returns a partial run report with `status="stopped_daily_limit"`. Resume next day. |
 | `5xx` | Exponential backoff + retry to `MAX_RETRIES`, then `RetryExhausted`. |
 
 ## Typed Exceptions
@@ -328,16 +397,16 @@ future orchestrator catch by category without enumerating leaves.
 | Exception | Base | Raised by | Meaning |
 |---|---|---|---|
 | `ConnectorError` | `Exception` | — | base for all connector failures |
-| `DailyLimitReached` | `ConnectorError` | connector | HTTP 429; clean stop, caught in `__main__` |
+| `DailyLimitReached` | `ConnectorError` | connector | HTTP 429; clean stop, caught by runner |
 | `RetryExhausted` | `ConnectorError` | connector | 5xx/403 retries hit `MAX_RETRIES` |
 | `NonRetryableError` | `ConnectorError` | connector | 301/4xx; retrying cannot help, raised immediately |
 | `StorageError` | `Exception` | — | base for all storage failures |
 | `CorruptedState` | `StorageError` | storage | year directory in an invalid file combination |
-| `QueryMismatch` | `StorageError` | storage | `_META.query` ≠ current run's query |
+| `QueryMismatch` | `StorageError` | storage | stored query ≠ current run's canonical query |
 
 `DailyLimitReached` is deliberately *not* a subclass of `NonRetryableError` — a
-429 is a clean stop, not an error, and `__main__` catches it as a normal exit
-path.
+429 is a clean stop, not an error. The runner catches it as a normal stop path
+so it can emit the partial run report.
 
 ## Sequencing
 
@@ -357,3 +426,4 @@ Cheap checks to run against real OpenAlex before trusting the contracts:
 - The last page yields an absent/null cursor that normalizes cleanly to `None`.
 - `meta.count` for a year-filtered query is stable enough to use as a sanity
   baseline.
+- `per_page=200` is accepted and returns up to 200 results.

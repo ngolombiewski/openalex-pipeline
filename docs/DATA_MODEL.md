@@ -68,7 +68,7 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 | `updated_date` | date | |
 
 **Extra**:
-| `_extracted_at` | timestamp | ISO 8601 UTC timestamp written at extraction time; not present in data source |
+| `_extracted_at` | timestamp | ISO 8601 UTC timestamp added during JSONL → Parquet bronze materialization; not present in data source |
 
 ### Excluded columns
 
