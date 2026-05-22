@@ -40,9 +40,10 @@ def fetch_page(
         api_key: OpenAlex API key. A credential, passed separately and never
                  written to disk / never part of query identity.
 
-    The connector assembles the request URL as::
+    The connector assembles the request as::
 
-        https://api.openalex.org/{query}&cursor={cursor}   (+ api key param)
+        GET https://api.openalex.org/{query}
+            ?cursor=<url-encoded>&api_key=<url-encoded>
 
     Returns:
         A tuple ``(records, next_cursor, meta_count)``:
@@ -65,8 +66,8 @@ def fetch_page(
     The connector raises only at fetch time; there is no in-flight on-disk
     state to clean up.
     """
-    url = f"{_BASE_URL}/{query}&cursor={cursor}"
-    params = {"api_key": api_key}
+    url = f"{_BASE_URL}/{query}"
+    params = {"api_key": api_key, "cursor": cursor}
 
     last_failure: str | None = None
     backoff = _INITIAL_BACKOFF_SECONDS
@@ -79,12 +80,22 @@ def fetch_page(
         else:
             status = response.status_code
             if status == 200:
-                data = response.json()
-                return (
-                    data["results"],
-                    data["meta"].get("next_cursor"),
-                    data["meta"]["count"],
-                )
+                try:
+                    data = response.json()
+                    if not isinstance(data, dict):
+                        raise TypeError(f"top-level JSON is {type(data).__name__}")
+                    meta = data["meta"]
+                    if not isinstance(meta, dict):
+                        raise TypeError(f"meta is {type(meta).__name__}")
+                    return (
+                        data["results"],
+                        meta.get("next_cursor"),
+                        meta["count"],
+                    )
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise NonRetryableError(
+                        f"malformed 200 response: {exc!r}; body={response.text[:200]!r}"
+                    ) from exc
             if status == 429:
                 raise DailyLimitReached(
                     f"HTTP 429 daily limit reached at cursor={cursor!r}"

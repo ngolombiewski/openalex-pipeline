@@ -56,6 +56,8 @@ def test_fetch_page_returns_records_next_cursor_and_meta_count() -> None:
     assert actual_url is not None
     assert "filter=publication_year" in actual_url
     assert "api_key=test-key" in actual_url
+    # cursor must be a URL-encoded query parameter, not interpolated into the path.
+    assert "cursor=%2A" in actual_url
 
 
 @responses.activate
@@ -99,6 +101,46 @@ def test_fetch_page_zero_result_year_returns_empty_tuple() -> None:
     )
 
     assert fetch_page(QUERY, "*", API_KEY) == ([], None, 0)
+
+
+@responses.activate
+def test_fetch_page_raises_non_retryable_on_malformed_json_body() -> None:
+    responses.add(responses.GET, URL, body="not valid json", status=200)
+
+    with pytest.raises(NonRetryableError, match="malformed 200"):
+        fetch_page(QUERY, "*", API_KEY)
+
+
+@responses.activate
+def test_fetch_page_raises_non_retryable_on_missing_key_in_200_body() -> None:
+    # A 200 body without "results" (e.g. an API error envelope) must not leak KeyError.
+    responses.add(
+        responses.GET,
+        URL,
+        json={"error": "internal", "message": "something went wrong"},
+        status=200,
+    )
+
+    with pytest.raises(NonRetryableError, match="malformed 200"):
+        fetch_page(QUERY, "*", API_KEY)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        [],
+        {"results": [], "meta": None},
+        {"results": [], "meta": []},
+    ],
+)
+@responses.activate
+def test_fetch_page_raises_non_retryable_on_wrong_200_body_shape(
+    body: object,
+) -> None:
+    responses.add(responses.GET, URL, json=body, status=200)
+
+    with pytest.raises(NonRetryableError, match="malformed 200"):
+        fetch_page(QUERY, "*", API_KEY)
 
 
 @responses.activate

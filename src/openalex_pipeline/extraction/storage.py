@@ -162,9 +162,14 @@ def classify_year(root: Path, year: int, query: str) -> YearStatus:
             raise CorruptedState(
                 f"year {year}: _CURSOR.json next_page invalid: {next_page!r}"
             )
+        cursor = cursor_doc.get("cursor")
+        if cursor is not None and not isinstance(cursor, str):
+            raise CorruptedState(
+                f"year {year}: _CURSOR.json cursor invalid: {cursor!r}"
+            )
         return YearStatus(
             state=YearState.IN_PROGRESS,
-            cursor=cursor_doc.get("cursor"),
+            cursor=cursor,
             next_page=next_page,
         )
 

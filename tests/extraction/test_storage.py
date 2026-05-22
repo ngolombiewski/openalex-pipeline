@@ -267,6 +267,21 @@ def test_classify_year_raises_corrupted_state_for_meta_and_page_without_cursor(
         classify_year(root, 1980, query)
 
 
+def test_classify_year_raises_corrupted_state_for_non_string_cursor(
+    root: Path,
+    query: str,
+) -> None:
+    write_meta(root, 1980, query=query)
+    write_page_file(root, 1980, 1, [{"id": "W1"}])
+    # Write a _CURSOR.json with a numeric cursor to simulate disk corruption.
+    (year_dir(root, 1980) / "_CURSOR.json").write_text(
+        '{"cursor": 123, "next_page": 2}', encoding="utf-8"
+    )
+
+    with pytest.raises(CorruptedState):
+        classify_year(root, 1980, query)
+
+
 def test_write_page_overwrites_existing_page_file(root: Path) -> None:
     # Resume idempotency hangs on write_page always overwriting page-{N}.
     write_page(
