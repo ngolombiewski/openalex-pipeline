@@ -23,6 +23,8 @@ identity.
 
 from __future__ import annotations
 
+from loguru import logger
+
 from . import connector, worker
 from .exceptions import DailyLimitReached
 from .models import RunReport, YearOutcome
@@ -71,7 +73,15 @@ def run(settings: Settings) -> RunReport:
         cut the run short.
     """
     outcomes: list[YearOutcome] = []
+    logger.info(
+        "starting extraction: years={}..{} filter={} data_dir={}",
+        settings.start_year,
+        settings.end_year,
+        settings.filter,
+        settings.data_dir,
+    )
     for year in settings.years:
+        logger.info("starting year {}", year)
         query = canonical_query(settings.filter, year)
         try:
             outcome = worker.process_year(
@@ -82,10 +92,20 @@ def run(settings: Settings) -> RunReport:
                 connector.fetch_page,
             )
         except DailyLimitReached:
+            logger.warning("daily limit reached while processing year {}", year)
             return RunReport(
                 outcomes=outcomes,
                 status="stopped_daily_limit",
                 stopped_year=year,
             )
         outcomes.append(outcome)
+        logger.info(
+            "year {} {}: records={} pages={} count_mismatch={}",
+            year,
+            outcome.status,
+            outcome.report.records_fetched,
+            outcome.report.page_count,
+            outcome.report.count_mismatch,
+        )
+    logger.info("extraction complete: years_processed={}", len(outcomes))
     return RunReport(outcomes=outcomes, status="complete")

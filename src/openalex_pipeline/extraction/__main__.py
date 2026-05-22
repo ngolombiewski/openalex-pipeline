@@ -15,12 +15,23 @@ from __future__ import annotations
 
 import sys
 
+from loguru import logger
 from pydantic import ValidationError
 
 from . import runner
 from .exceptions import ConnectorError, StorageError
 from .models import RunReport
 from .settings import Settings
+
+
+def _configure_logging() -> None:
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level="INFO",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+    )
+    logger.enable("openalex_pipeline.extraction")
 
 
 def _print_report(report: RunReport) -> None:
@@ -45,6 +56,7 @@ def _print_report(report: RunReport) -> None:
 
 
 def main() -> int:
+    _configure_logging()
     try:
         settings = Settings()  # type: ignore[call-arg]
     except ValidationError as exc:

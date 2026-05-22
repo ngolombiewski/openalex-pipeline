@@ -222,6 +222,31 @@ def test_classify_year_raises_query_mismatch_for_complete_report_query(
         classify_year(root, 1980, query)
 
 
+def test_classify_year_query_mismatch_message_omits_select_columns(
+    root: Path,
+) -> None:
+    stored_query = (
+        "works?filter=primary_topic.field.id:17,publication_year:1980"
+        "&select=id,title,publication_year"
+        "&per_page=200"
+    )
+    current_query = (
+        "works?filter=primary_topic.field.id:17,publication_year:1981"
+        "&select=id,title,publication_year"
+        "&per_page=200"
+    )
+    write_year_report(root, 1980, query=stored_query)
+
+    with pytest.raises(QueryMismatch) as exc_info:
+        classify_year(root, 1980, current_query)
+
+    message = str(exc_info.value)
+    assert "select=<omitted>" in message
+    assert "select=id,title,publication_year" not in message
+    assert "publication_year:1980" in message
+    assert "publication_year:1981" in message
+
+
 def test_classify_year_raises_corrupted_state_for_meta_without_cursor_or_page(
     root: Path,
     query: str,

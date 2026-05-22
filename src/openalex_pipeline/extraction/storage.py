@@ -89,6 +89,16 @@ def _count_lines(path: Path) -> int:
     return path.read_bytes().count(b"\n")
 
 
+def _display_query(query: object) -> object:
+    if not isinstance(query, str):
+        return query
+    parts = [
+        "select=<omitted>" if part.startswith("select=") else part
+        for part in query.split("&")
+    ]
+    return "&".join(parts)
+
+
 def _inspect_layout(year_dir: Path) -> set[str]:
     """Return which recognized markers exist in the year directory.
 
@@ -144,8 +154,8 @@ def classify_year(root: Path, year: int, query: str) -> YearStatus:
         report = _read_json(year_dir / _REPORT_FILE)
         if report.get("query") != query:
             raise QueryMismatch(
-                f"year {year}: stored query {report.get('query')!r} "
-                f"!= current query {query!r}"
+                f"year {year}: stored query {_display_query(report.get('query'))!r} "
+                f"!= current query {_display_query(query)!r}"
             )
         return YearStatus(state=YearState.COMPLETE)
 
@@ -153,8 +163,8 @@ def classify_year(root: Path, year: int, query: str) -> YearStatus:
         meta = _read_json(year_dir / _META_FILE)
         if meta.get("query") != query:
             raise QueryMismatch(
-                f"year {year}: stored query {meta.get('query')!r} "
-                f"!= current query {query!r}"
+                f"year {year}: stored query {_display_query(meta.get('query'))!r} "
+                f"!= current query {_display_query(query)!r}"
             )
         cursor_doc = _read_json(year_dir / _CURSOR_FILE)
         next_page = cursor_doc.get("next_page")

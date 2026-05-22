@@ -46,6 +46,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from loguru import logger
+
 from . import storage
 from .models import YearOutcome, YearState
 
@@ -85,6 +87,7 @@ def process_year(
     status = storage.classify_year(root, year, query)
 
     if status.state is YearState.COMPLETE:
+        logger.info("year {} already complete; reading persisted report", year)
         return YearOutcome(
             year=year,
             status="skipped",
@@ -92,19 +95,39 @@ def process_year(
         )
 
     if status.state is YearState.FRESH:
+        logger.info("year {} is fresh; fetching first page", year)
         records, next_cursor, meta_count = fetch_page(query, "*", api_key)
         storage.initialize_year(root, year, query, meta_count)
         storage.write_page(root, year, records, next_cursor, 1)
+        logger.info(
+            "year {} page {} written: records={} next_cursor={}",
+            year,
+            1,
+            len(records),
+            next_cursor is not None,
+        )
         cursor, page_number = next_cursor, 2
     else:  # IN_PROGRESS; next_page is guaranteed populated by classify_year.
         assert status.next_page is not None
         cursor, page_number = status.cursor, status.next_page
+        if cursor is None:
+            logger.info("year {} is finalize-pending; no fetch needed", year)
+        else:
+            logger.info("year {} is in progress; resuming at page {}", year, page_number)
 
     while cursor is not None:
         records, next_cursor, _ = fetch_page(query, cursor, api_key)
         storage.write_page(root, year, records, next_cursor, page_number)
+        logger.info(
+            "year {} page {} written: records={} next_cursor={}",
+            year,
+            page_number,
+            len(records),
+            next_cursor is not None,
+        )
         cursor, page_number = next_cursor, page_number + 1
 
+    logger.info("year {} finalizing", year)
     return YearOutcome(
         year=year,
         status="completed",

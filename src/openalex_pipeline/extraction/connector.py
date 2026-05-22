@@ -14,6 +14,7 @@ from __future__ import annotations
 from time import sleep
 from typing import Final
 
+from loguru import logger
 import requests
 
 from .exceptions import DailyLimitReached, NonRetryableError, RetryExhausted
@@ -109,6 +110,13 @@ def fetch_page(
             last_failure = f"HTTP {status}"
 
         if attempt + 1 < _MAX_RETRIES:
+            logger.warning(
+                "fetch attempt {}/{} failed ({}); retrying in {:.1f}s",
+                attempt + 1,
+                _MAX_RETRIES,
+                last_failure,
+                backoff,
+            )
             sleep(backoff)
             backoff *= _BACKOFF_FACTOR
 
