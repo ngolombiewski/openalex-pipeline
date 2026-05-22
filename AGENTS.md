@@ -11,9 +11,10 @@ Don't proceed to implementation until I give the signal.
 
 ## Docs
 
-Prefer local docs over web search. Check `docs/` first:
+Prefer local docs (`docs/`) over web search. Check out those:
 - `docs/SPECS.md` — Learn about the project.
 - `docs/DATA_MODEL.md` — Source of truth for all data modeling decisions.
+The rest only when prompted to.
 
 ## Execution Guidelines
 
@@ -22,10 +23,3 @@ Prefer local docs over web search. Check `docs/` first:
 - don't add dependencies, ask me first if there is need
 - everything in `pyproject.toml` is approved
 - see `env.example` for available env vars
-
-## Current Status
-
-TODO:
-Review the test suite in `tests/extraction` against the design doc and contracts:
-- `docs/extraction-module-design.md`
-- `src/openalex_pipeline/extraction`
