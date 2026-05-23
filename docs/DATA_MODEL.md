@@ -65,10 +65,14 @@ All analytical questions (Q1–Q3) are computed for both variants. Differences a
 | `doi` | string | Deduplication |
 | `ids` | struct | External ID crosswalk |
 | `keywords` | list[struct] | Low signal; retained as cheap insurance |
-| `updated_date` | date | |
+| `updated_date` | timestamp | |
 
-**Extra**:
-| `_extracted_at` | timestamp | ISO 8601 UTC timestamp added during JSONL → Parquet bronze materialization; not present in data source |
+**Extra** columns added during JSONL → Parquet materialization; not present in OpenAlex source data:
+
+| Column | Type | Notes |
+|---|---|---|
+| `_ingested_at` | timestamp | ISO 8601 UTC timestamp when row was materialized to Parquet |
+| `_source_file` | string | Source JSONL page file path |
 
 ### Excluded columns
 
