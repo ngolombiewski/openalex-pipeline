@@ -2,7 +2,7 @@
 
 ## Project
 
-"AI Is Eating CS — But How Durable Is Its Research?" — DE Zoomcamp capstone. End-to-end batch data pipeline on OpenAlex data.
+DE Zoomcamp capstone. End-to-end batch data pipeline on OpenAlex data.
 
 ## Analytical Questions
 
