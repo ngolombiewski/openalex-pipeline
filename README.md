@@ -67,19 +67,21 @@ terraform/          # GCS bucket, BigQuery dataset, service accounts
 
 ```bash
 # Install (requires Python ≥ 3.11)
-pip install -e ".[dev]"
+uv sync
 
-# Extraction
-openalex-extract --start-year 2000 --end-year 2024
+# Extraction — configured via env vars (see env.example)
+uv run -m openalex_pipeline.extraction
 
-# Bronze ingestion
-openalex-ingest --start-year 2000 --end-year 2024
+# Bronze ingestion — ingest all completed years under data-root
+uv run -m openalex_pipeline.bronze --data-root data/
+# or a specific range
+uv run -m openalex_pipeline.bronze --data-root data/ --start-year 2000 --end-year 2024
 
 # Tests
-pytest tests/
+uv run pytest tests/
 ```
 
-Configuration is via environment variables (`OPENALEX_DATA_DIR`, `OPENALEX_BRONZE_DIR`, `OPENALEX_START_YEAR`, `OPENALEX_END_YEAR`); CLI flags override env vars for bronze.
+Configuration is via environment variables; see `env.example` for available vars. Bronze additionally accepts `--start-year`, `--end-year`, and `--data-root` as CLI arguments (year range is optional; omitting it ingests all completed years found under `<data-root>/extract`). Extraction is env-only.
 
 ## Key design decisions
 
