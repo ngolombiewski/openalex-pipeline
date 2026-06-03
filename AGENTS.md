@@ -11,15 +11,15 @@ Don't proceed to implementation until I give the signal.
 
 ## Docs
 
-Prefer local docs (`docs/`) over web search.
-
-- `docs/architecture.md` — Read this at the start of every session. Current project state: data model, module topology, data flows, contracts, configuration.
-- `docs/plan.md` — Consult when starting work on a new module or feature. Contains open questions and prospective items not yet in the project state.
-- `docs/adr/` — Consult only when questioning an existing decision. Immutable records of why decisions were made.
+Prefer local docs (`docs/`) over web search. Check out those:
+- `docs/SPECS.md` — Learn about the project.
+- `docs/DATA_MODEL.md` — Source of truth for all data modeling decisions.
+The rest only when prompted to.
 
 ## Execution Guidelines
 
 - use `uv`, never `pip`
-- use `uv run`, never `python3` or `python`
+- use `uv run ...`, never `python3` or `python`
 - don't add dependencies, ask me first if there is need
 - everything in `pyproject.toml` is approved
+- see `env.example` for available env vars

@@ -67,8 +67,8 @@ The set does not grow.
    native Polars reader, a malformed line throws during read; bronze lets the
    year fail loudly rather than pre-filtering. Consistent with extraction's
    "corruption is loud."
-2. **Non-null `id` → loud failure.** `id` is the primary key. A null or missing
-  `id` fails the year loudly.
+2. **Non-null `id` → loud failure.** `id` is the primary key per
+   `DATA_MODEL.md`. A null or missing `id` fails the year loudly.
 
 ID **format** validation (`W\d+` pattern) is deliberately **not** performed —
 it second-guesses OpenAlex's own ID scheme and buys little over non-null.
@@ -97,7 +97,7 @@ number.
 
 Bronze imposes an **explicit 21-column schema**. Typed scalars are typed; the
 eight nested fields are landed as **JSON strings** and parsed downstream in dbt
-staging (consistent with data model, which places flattening in dbt).
+staging (consistent with `DATA_MODEL.md`, which places flattening in dbt).
 
 | Column | Polars dtype | Notes |
 |---|---|---|
@@ -147,8 +147,8 @@ against real page files. See Open Questions.
 
 ### Column-presence contract
 
-`architecture.md` contains the data model; bronze reasserts it at the **schema level**:
-the output Parquet has exactly these 21 columns. (Reassertion is schema-level only —
+`DATA_MODEL.md` is a contract; bronze reasserts it at the **schema level**: the
+output Parquet has exactly these 21 columns. (Reassertion is schema-level only —
 "all 21 columns present in every JSON object" is not meaningful, since OpenAlex
 omits keys for null-valued fields.)
 
@@ -166,7 +166,8 @@ not anticipated to require a design change.
 ## Idempotency & Resume
 
 - The **per-year Parquet file is the authoritative completion signal** for "this
-  year is ingested" — exactly as `_YEAR_REPORT.json` is for extraction.
+  year is ingested" — exactly as `_YEAR_REPORT.json` is for extraction. No
+  separate `_SUCCESS` marker.
 - **Atomic write**: write `{year}.parquet.tmp`, then rename to `{year}.parquet`.
   Rename is atomic on local disk. A crash leaves a stale `.tmp`, which is
   garbage the next run overwrites. Bronze does not actively clean stale `.tmp`
@@ -178,7 +179,7 @@ not anticipated to require a design change.
 
 ## Manifest
 
-A single `manifest.csv` — human-readable, tiny (76 rows for 1950–2026).
+A single `manifest.csv` — human-readable, tiny (~75 rows for 1950–2024).
 **Rebuilt wholesale every run** by scanning the bronze output directory; never
 appended. Wholesale rebuild makes it idempotent for free and impossible to
 desync from the Parquet files.
@@ -213,7 +214,7 @@ Bronze adds **zero columns to the records**. All provenance (ingest timestamp,
 source, counts) lives in the manifest at year granularity. Per-row
 `_ingested_at` would be 14.7 M identical-within-a-year timestamps; per-row
 `_source_file` (page-file traceability) is not needed by any analytical
-question in `architecture.md`. This supersedes the earlier `_ingested_at` /
+question in `SPECS.md`. This supersedes the earlier `_ingested_at` /
 `_source_file` sketch and keeps bronze a near-pure format conversion.
 
 ## Empty / Zero-Result Years
@@ -235,10 +236,12 @@ dev-ingestion is friction worth removing.
 - `OPENALEX_START_YEAR`, `OPENALEX_END_YEAR` — reused from extraction; the year
   range is constant across extract and ingest in prod.
 - **Data directory**: extraction's `OPENALEX_DATA_DIR` currently points
-  directly at `.../data/extract` and **extraction is running in prod against
+  directly at `.../data/extract` and **something is running in prod against
   that definition**. Bronze therefore introduces a **separate
-  `OPENALEX_DATA_ROOT`** pointing at `.../data` and appends `/bronze` to its
-  destination path. 
+  `OPENALEX_BRONZE_DIR`** rather than redefining the existing var. Refactoring
+  both stages to a shared `.../data` root with per-stage subdirs is a possible
+  later cleanup, deliberately *not* done now (risk asymmetry favors not
+  touching the running extraction).
 
 The broader question of env vs. CLI vs. config-file for the whole pipeline is
 deferred.
@@ -268,3 +271,5 @@ Resolved once the function bodies stand and can be run against real page files:
 2. Implement the per-year ingestion function (schema, checks, atomic write).
 3. Smoke-test against real page files; resolve Open Questions 1–6.
 4. Manifest rebuild + CLI/Settings wiring.
+5. Update this doc and `DATA_MODEL.md` (drop `_extracted_at`) to match the
+   confirmed implementation.
