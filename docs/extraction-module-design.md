@@ -1,8 +1,6 @@
 # Extraction Module — Design & Contracts
 
-Settled design for the OpenAlex `works` extraction module. Steps 1 (invariants)
-and 2 (contracts) are complete; this doc is the input for step 3 (writing tests).
-Treat **invariants** and **contracts** as binding; everything else is rationale.
+Settled design for the OpenAlex `works` extraction module.
 
 ## Scope
 
