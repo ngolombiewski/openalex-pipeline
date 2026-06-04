@@ -1,5 +1,10 @@
 # Bronze Ingestion — Design & Contracts
 
+> **Status: as-built.** Reconciled with the green-light implementation under
+> `src/openalex_pipeline/bronze/` (tests green, ruff + pyright clean).
+> `contracts.py` has been removed and the code is now the source of truth; this
+> document is retained as the design record and rationale.
+
 Settled design for the JSONL → Parquet bronze materialization step. Consumes the
 output of the extraction module (`extraction-module-design.md`) and produces the
 bronze works table described in `docs/DATA_MODEL.md`.
@@ -16,10 +21,7 @@ Parquet using Polars. One Parquet file per calendar-year shard. Bronze is a
 **thin format conversion**: land the data mostly intact, impose an explicit
 schema, record provenance in a manifest.
 
-Bronze adds the `_extracted_at`-equivalent provenance — but at **year
-granularity in the manifest**, not per record (see *Provenance*). This
-supersedes the per-record `_extracted_at` column in the current
-`docs/DATA_MODEL.md`; that doc must be updated to match (see *Open Questions*).
+Bronze adds the `_extracted_at`-equivalent provenance at **year granularity in the manifest**, not per record (see *Provenance*).
 
 Guiding principles, inherited from the extraction module: **simplicity and
 specificity**. This is a pipeline-specific step, not a general ingestion tool.
@@ -30,7 +32,7 @@ Explicitly **out of scope** for bronze, deferred to dbt staging or silver:
 
 - Unnesting / flattening nested fields — they are landed as JSON strings.
 - Semantic deduplication (same work via two DOIs, preprint vs. published).
-- Consistency checks beyond the two integrity assertions in *Integrity Checks*.
+- Consistency checks beyond the integrity assertions in *Integrity Checks*.
 - A full null-rate / filter-conformance profiling pass over all records.
 - Typing of date fields — `publication_date` and `updated_date` stay `String`.
 
@@ -176,10 +178,11 @@ For each year in the requested range:
 2. INGESTED or PENDING -> skip, record manifest row, continue.
 3. READY:
    a. scan_ndjson(page_files, schema=BRONZE_SCHEMA)   # explicit schema
-   b. assert non-null id   (loud failure on violation)
-   c. count duplicate ids  (non-blocking; recorded in manifest)
-   d. write {year}.parquet.tmp, then rename to {year}.parquet  (atomic)
-   e. record manifest row.
+   b. assert non-null id                  (loud failure on violation)
+   c. assert row_count == records_fetched  (loud failure on violation)
+   d. count duplicate ids  (non-blocking; recorded in manifest)
+   e. write {year}.parquet.tmp, then rename to {year}.parquet  (atomic)
+   f. record manifest row.
 4. After all years: rebuild and write _MANIFEST.parquet wholesale.
 ```
 
@@ -192,6 +195,11 @@ empty, bronze writes an **empty Parquet carrying the full 21-column schema**
 (an empty frame typed by `BRONZE_SCHEMA`). Downstream `scan` of an empty year
 then behaves like any other year. No CS year in 1950–2024 is expected to be
 empty, but the extraction contract permits it, so bronze handles it.
+
+The empty path is keyed on *exactly* one zero-byte `page-0001.jsonl`. Any other
+zero-byte combination — a zero-byte page alongside non-empty pages, or multiple
+zero-byte pages — is not a state extraction can produce, so it fails loud as
+`CorruptedState` rather than being treated as a (partial) empty year.
 
 ### Atomic write
 
@@ -209,8 +217,9 @@ re-validate page counts, line counts, or page contiguity.
 
 | Check | Mode | Detail |
 |---|---|---|
-| Non-null `id` | **Loud** | A null primary key is a defect; the year fails. The single record-level integrity assertion bronze makes. |
-| Scalar type conformance | **Loud (free)** | The forced schema makes this a read-time invariant. The spike confirmed `scan_ndjson` *raises* `ComputeError` on a type-mismatched scalar — it does not silently coerce to null. Every scalar in all 21 columns is implicitly type-checked on read. |
+| Non-null `id` | **Loud** | A null primary key is a defect; the year fails. A record-level integrity assertion. |
+| `bronze_row_count` == `records_fetched` | **Loud** | The Parquet row count must equal extraction's asserted line count (`_YEAR_REPORT.json`). Asserted before the write. Duplicates count equally on both sides, so the only ways to diverge are bronze losing/multiplying rows or a page file truncated on disk — both defects, neither source churn. Distinct from extraction's non-blocking `count_mismatch`. |
+| Scalar type conformance | **Loud (free)** | The forced schema makes this a read-time invariant. The spike confirmed `scan_ndjson` *raises* `ComputeError` on a type-mismatched scalar — it does not silently coerce to null. Every scalar in all 21 columns is implicitly type-checked on read. Bronze catches the `ComputeError` and re-raises it as `CorruptedState`, so it and malformed JSONL surface as one loud, bronze-typed exception. The catch is narrowed to `ComputeError` on purpose: an unexpected, non-`ComputeError` Polars error propagates as itself rather than being mislabeled "corruption". |
 | Duplicate `id` count | **Non-blocking** | Count of `id` values appearing more than once in the year. Recorded in the manifest as `duplicate_id_count`. Not a dedup — nothing is removed. |
 | `count_mismatch` (forwarded) | **Non-blocking** | Extraction's `count_mismatch` flag is carried into the manifest verbatim. A count-mismatched year is *not* a bronze failure. |
 
@@ -231,37 +240,37 @@ leaves diagnosis to a human. Any surfaced message must be cause-neutral.
 ## Provenance & the Manifest
 
 `_MANIFEST.parquet` is a small table — one row per year in the requested range,
-~75 rows for a full 1950–2024 corpus. It is **rebuilt wholesale every run** by
+76 rows for a full 1950–2026 corpus. It is **rebuilt wholesale every run** by
 scanning the bronze output directory and reading the corresponding extraction
 year reports. It is never appended to and never the source of truth, so it
 cannot desync.
 
-The manifest carries **all provenance at year granularity**. Per-record
-provenance columns (`_ingested_at`, `_source_file`) are **not** added to the
-records: a per-row ingest timestamp is 14.7 M identical-within-a-year values,
-and none of the three analytical questions in `SPECS.md` needs record→page-file
-traceability. This keeps bronze a near-pure format conversion — zero columns
+The manifest carries **all provenance at year granularity**. This keeps bronze a near-pure format conversion — zero columns
 added to the data.
 
 ### Manifest columns (one row per year)
 
 | Column | Source | Notes |
 |---|---|---|
-| `publication_year` | shard key | |
-| `status` | bronze | `ingested` / `pending` |
+| `publication_year` | shard key | `Int64` |
+| `status` | bronze | `ingested` / `ready` / `pending`. `ready` is representable but rare in practice (a year whose report is present but which was not ingested this run) — the manifest is normally built after all `ready` years are ingested. |
 | `query` | extraction `_YEAR_REPORT` | What was extracted; makes the manifest self-contained |
 | `expected_count` | extraction `_YEAR_REPORT` | OpenAlex `meta.count` at extraction time |
 | `records_fetched` | extraction `_YEAR_REPORT` | Extraction's line count |
 | `count_mismatch` | extraction `_YEAR_REPORT` | Forwarded non-blocking flag |
-| `extraction_completed_at` | extraction `_YEAR_REPORT` | |
+| `extraction_completed_at` | extraction `_YEAR_REPORT` | From the report's `completed_at` |
 | `bronze_row_count` | bronze | Actual rows in `{year}.parquet` |
 | `duplicate_id_count` | bronze | Non-blocking duplicate-`id` count |
-| `bronze_file_path` | bronze | Relative path to the Parquet |
-| `ingested_at` | bronze | One timestamp per year |
+| `bronze_file_path` | bronze | Path **relative to `bronze_root`** (the string `{year}.parquet`). Deliberately asymmetric with `YearIngestResult.bronze_file_path`, which is the absolute path for a mid-run caller. |
+| `ingested_at` | bronze | The Parquet's **mtime** (`Datetime("us", "UTC")`), not "now" — so a manifest rebuild never re-stamps an already-ingested year. |
 
-`bronze_row_count` vs. `records_fetched` is bronze's own count check: if they
-differ, bronze lost or duplicated rows — a bronze bug, distinct from
-extraction's `count_mismatch`. `pending` rows carry only the columns knowable
+`bronze_row_count` vs. `records_fetched` is bronze's own count check, and it is
+**loud, not just recorded**: `ingest_year` asserts they are equal before writing
+the Parquet (see *Integrity Checks*), so any year that has a Parquet has already
+passed it — a divergence means bronze lost/duplicated rows or a page was
+truncated on disk, both defects distinct from extraction's `count_mismatch`. The
+manifest carries both columns for at-a-glance visibility; for an INGESTED year
+they are equal by construction. `pending` rows carry only the columns knowable
 without ingestion; bronze-side columns are null for them.
 
 ## Invariants
@@ -274,30 +283,48 @@ without ingestion; bronze-side columns are null for them.
    `BRONZE_SCHEMA`. The eight nested columns are `String` (raw verbatim JSON);
    the rest are typed scalars.
 4. **Scalar type-conformance is a read-time invariant.** A scalar that does not
-   match its forced dtype raises `ComputeError` and fails the year. Bronze does
-   not silently coerce.
-5. **Non-null `id`.** Every record has a non-null `id`, asserted loud.
+   match its forced dtype raises `ComputeError`, which bronze re-raises as
+   `CorruptedState` and fails the year. Bronze does not silently coerce.
+5. **Non-null `id` and row-count match.** Every record has a non-null `id`, and
+   the Parquet row count equals extraction's `records_fetched` — both asserted
+   loud before the year's Parquet is written.
 6. **Manifest is rebuilt wholesale.** Never appended. Always reflects the full
    output directory, regardless of the current run's year range — the year
    range scopes *ingestion*, not the manifest.
-7. **Corruption is loud.** Malformed JSONL on disk, a missing extraction report
-   for a year claimed COMPLETE, or any classification ambiguity fails loud.
-   No silent recovery.
+7. **Corruption is loud.** Malformed JSONL on disk, a scalar that violates its
+   dtype, a `_YEAR_REPORT.json` present with zero page files, or a disallowed
+   zero-byte page combination all fail loud as `CorruptedState` — no silent
+   recovery. Read-time failures reach bronze as Polars `ComputeError` and are
+   wrapped; an unexpected non-`ComputeError` Polars error is left to propagate
+   as itself rather than be mislabeled corruption.
 
-## Open Questions
+## Module Layout
 
-- **`docs/DATA_MODEL.md` must be updated.** It currently specifies a per-record
-  `_extracted_at` column. Bronze adds *no* per-record columns; provenance lives
-  in the manifest at year granularity. The data model's "Extra" row should be
-  removed and replaced with a reference to the manifest. Until this is fixed,
-  the data model and bronze's output disagree.
-- **GCS output path.** Bronze writes to a local `bronze_root` during local
-  development. The output root is a parameter; the move to GCS is expected to be
-  a path swap with no design change. To be confirmed when the cloud lift
-  happens — in particular, whether GCS object semantics need a `_SUCCESS` marker
-  that local disk does not (extraction faced and rejected the same question).
-- **The deferred profiling pass.** Extraction deferred a full null-rate /
-  filter-conformance scan, and the extraction status report tentatively assigned
-  it to "bronze ingestion work." Bronze is now scoped as pure conversion and
-  does not own it. Its home — a standalone profiling step or dbt staging tests —
-  is undecided and must be assigned before silver.
+The implemented module lives at `src/openalex_pipeline/bronze/` and is split
+into six files. The split mirrors the natural test seams (one source file per
+test target) and pins a clean dependency DAG: no cycles, no surprises.
+
+| File | Contents |
+|---|---|
+| `schema.py` | `BRONZE_SCHEMA`, `NESTED_COLUMNS` |
+| `errors.py` | `BronzeError`, `CorruptedState`, `IntegrityError` |
+| `core.py` | `YearState`, `YearIngestResult`, `classify_year`, `ingest_year`, `write_empty_year` |
+| `manifest.py` | `build_manifest`, `write_manifest` |
+| `runner.py` | `run` |
+| `__main__.py` | `resolve_roots`, `build_years_list`, `parse_args`, `main` |
+
+### Dependency direction
+
+`schema` and `errors` are leaves. `core` imports both. `manifest` imports
+`schema` and `errors`. `runner` imports `core` and `manifest`. `__main__`
+imports `runner`. `core` does not import `manifest` and `manifest` does not
+import `core` — they are sibling concerns (ingestion vs. derived state) and
+the runner is the only place that touches both.
+
+A consequence of the sibling split: `manifest` re-derives each year's status
+directly from the filesystem (Parquet exists → `ingested`; report exists →
+`ready`; else `pending`) rather than calling `core.classify_year`. This keeps
+the decoupling intact at the cost of a small, deliberate logic echo. The tiny
+atomic-write helper (tmp + rename) is likewise duplicated in `core` and
+`manifest` rather than introducing a shared utility module outside the
+six-file layout.
