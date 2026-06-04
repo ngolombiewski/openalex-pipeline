@@ -22,4 +22,4 @@ The rest only when prompted to.
 - use `uv run ...`, never `python3` or `python`
 - don't add dependencies, ask me first if there is need
 - everything in `pyproject.toml` is approved
-- see `env.example` for available env vars
+- see `.env.example` for available env vars

@@ -9,8 +9,8 @@ per API page) on local disk. Raw extraction only — no per-record transformatio
 Idempotent, resumable, manually invoked once per day until the full subset is on
 disk. Downstream (Polars → Parquet → GCS → BigQuery) is out of scope.
 
-Bronze-only columns such as `_extracted_at` are added later during the JSONL →
-Parquet bronze materialization step, not by this module.
+Provenance is added later during the JSONL → Parquet bronze materialization
+step, not by this module.
 
 Guiding principles: **simplicity and specificity**. This is a pipeline-specific
 module, not a general extraction tool. Cheap abstractions with no downside are
