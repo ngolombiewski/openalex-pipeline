@@ -6,6 +6,12 @@
 *-credentials.json
 service-account*.json
 
+# AI agents
+.agents/
+.codex/
+.cursor/
+.claude/
+
 # Data (can get large)
 data/
 *.parquet
