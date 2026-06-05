@@ -10,7 +10,10 @@ terraform {
 
   # Local backend for now: state lives in this directory (gitignored).
   # migrate to GCS after first apply.
-  backend "local" {}
+  backend "gcs" {
+    bucket = "openalex-pipeline-bronze"
+    prefix = "terraform/state"
+  }
 }
 
 variable "project" {
@@ -32,4 +35,20 @@ provider "google" {
   # No JSON key: impersonate the terraform-runner service account. The caller's
   # ADC identity holds roles/iam.serviceAccountTokenCreator on this SA.
   impersonate_service_account = "terraform-runner@openalex-pipeline.iam.gserviceaccount.com"
+}
+
+resource "google_storage_bucket" "bronze" {
+  name     = "openalex-pipeline-bronze"
+  location = "EU"
+
+  # Enforce IAM-only access; disable per-object ACLs.
+  uniform_bucket_level_access = true
+
+  # Hard guard against accidental public exposure.
+  public_access_prevention = "enforced"
+
+  # Prevent Terraform from destroying this bucket.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
