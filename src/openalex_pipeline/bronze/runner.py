@@ -10,7 +10,7 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
-from .core import YearIngestResult, ingest_year
+from .core import YearIngestResult, YearState, ingest_year
 from .manifest import build_manifest, write_manifest
 
 
@@ -39,15 +39,17 @@ def run(extract_root: Path, bronze_root: Path, years: list[int]) -> pl.DataFrame
 def _log_year(result: YearIngestResult) -> None:
     """Log one year's outcome live, surfacing non-blocking warnings (smoke alarms).
 
-    A freshly written or already-present year reports as "ingested" (the parquet
-    exists); otherwise the classification state is reported as-is.
+    A freshly written year reports "ingested (bronze_row_count=N)". A year that
+    was already done is reported "ingested (skipped)" -- its parquet is never
+    re-read, so no row count. PENDING years report "pending (skipped)".
     """
     year = result.year
-    status = "ingested" if result.bronze_file_path is not None else result.state.value
-    if result.bronze_row_count is not None:
-        logger.info(f"{year}: {status} (bronze_row_count={result.bronze_row_count})")
+    if result.state is YearState.INGESTED:
+        logger.info(f"{year}: ingested (skipped)")
+    elif result.state is YearState.PENDING:
+        logger.info(f"{year}: pending (skipped)")
     else:
-        logger.info(f"{year}: {status}")
+        logger.info(f"{year}: ingested (bronze_row_count={result.bronze_row_count})")
 
     if result.duplicate_id_count:
         logger.warning(
