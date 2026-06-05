@@ -12,6 +12,7 @@ terraform.tfvars
 *.tfstate
 *.tfstate.backup
 *.tfplan
+tfplan
 
 
 # AI agents
