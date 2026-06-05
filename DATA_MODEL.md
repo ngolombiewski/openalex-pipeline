@@ -4,16 +4,22 @@
 
 ### Rule
 
-A work is flagged as AI (`is_ai = true`) if its `primary_topic.subfield.id` matches one of the following OpenAlex subfields:
+A work is flagged as AI (`is_ai = true`) if its `primary_topic.subfield.id`
+matches one of the following OpenAlex subfields:
 
 - `Artificial Intelligence`
 - `Computer Vision and Pattern Recognition` *(see ablation below)*
 
-Classification and all analytical groupings (subfield share, Gini, half-life) are derived from `primary_topic` only. The full `topics` array is retained in bronze but not used for classification.
+Classification and all analytical groupings (subfield share, Gini, half-life)
+are derived from `primary_topic` only. The full `topics` array is retained in
+bronze but not used for classification.
 
 ### Rationale
 
-Using `primary_topic` is simpler, avoids double-counting, and is more analytically defensible — a work's primary topic reflects its core contribution. We trust OpenAlex's classification rather than trying to second-guess it via the secondary topics array.
+Using `primary_topic` is simpler, avoids double-counting, and is more
+analytically defensible — a work's primary topic reflects its core
+contribution. We trust OpenAlex's classification rather than trying to
+second-guess it via the secondary topics array.
 
 CV/PR inclusion is a judgment call and is tested as an ablation.
 
@@ -26,21 +32,31 @@ Two classification variants are defined:
 | `ai_strict` | Artificial Intelligence only |
 | `ai_broad` | Artificial Intelligence + Computer Vision and Pattern Recognition |
 
-All analytical questions (Q1–Q3) are computed for both variants. Differences are reported.
-
-### Open questions
-
-- CV/PR inclusion — deferred to analysis time; both ablation variants will be computed.
-- Subfield IDs (not just display names) — to be pinned once confirmed via API.
+All analytical questions (Q1–Q3) are computed for both variants. Differences
+are reported.
 
 ---
 
 ## Bronze Layer: Works Table
 
-**Source**: OpenAlex works entity, filtered to Computer Science field (`primary_topic.field.id:17`). Year range: 1950 until today.
-**Format**: Parquet — one file per `publication_year` shard (`{bronze_root}/{year}.parquet`), not Hive-partitioned.
-**Nesting**: The eight nested fields are landed as **raw JSON strings** (verbatim, exactly as OpenAlex emitted them) — *not* native Parquet structs/lists. dbt staging parses and flattens them. The forced-String choice (over inferring structs and `json_encode`-ing them back) preserves fidelity: struct round-trip fabricates explicit `null`s for keys a record never had. See `docs/bronze-design.md`.
-**Provenance**: Bronze adds **no per-record columns** — no `_extracted_at`. All provenance lives at **year granularity** in `{bronze_root}/_MANIFEST.parquet` (one row per year: query, counts, `ingested_at`, etc.). This supersedes the per-record `_extracted_at` column this document previously specified.
+**Source**: OpenAlex works entity, filtered to Computer Science field
+(`primary_topic.field.id:17`). Year range: 1950 until today.
+
+**Format**: Parquet — one file per `publication_year` shard
+(`{bronze_root}/{year}.parquet`), not Hive-partitioned. On upload to GCS, a
+Hive-style prefix is added for BigQuery partition pruning; the file itself is
+unchanged. See `ARCHITECTURE.md` for the cross-boundary path convention.
+
+**Nesting**: The eight nested fields are landed as **raw JSON strings**
+(verbatim, exactly as OpenAlex emitted them) — *not* native Parquet
+structs/lists. dbt staging parses and flattens them. The forced-String choice
+(over inferring structs and `json_encode`-ing them back) preserves fidelity:
+struct round-trip fabricates explicit `null`s for keys a record never had.
+See `docs/bronze-design.md`.
+
+**Provenance**: Bronze adds **no per-record columns** — no `_extracted_at`.
+All provenance lives at **year granularity** in `{bronze_root}/_MANIFEST.parquet`
+(one row per year: query, counts, `ingested_at`, etc.).
 
 ### Included columns
 

@@ -1,115 +1,54 @@
-# Plan — Open Questions & Prospective Work
+# PLAN.md
 
-This file collects unresolved questions and items that are not yet part of the
-project state. Remove an item once it is resolved and reflected in
-`docs/architecture.md` or an ADR.
+Open questions and parked design decisions. Each entry is something that has
+been *considered* but deliberately deferred — not an inbox.
+
+**Discipline:** when a question is resolved, the resolution moves into
+`ARCHITECTURE.md` (or the relevant design doc) and the entry is removed from
+this file. Ghosts accumulate otherwise.
 
 ---
 
-## Open Questions
+## Data / Analysis
 
-### Data / Analysis
+- **OpenAlex subfield IDs for AI.** The classification rule in `DATA_MODEL.md`
+  uses display names (`Artificial Intelligence`, `Computer Vision and Pattern
+  Recognition`). The exact numeric subfield IDs need to be pinned via the API
+  before dbt staging can filter on them reliably.
+- **CV/PR inclusion in the AI classifier.** Judgment call; deferred to
+  analysis time. Both ablation variants (`ai_strict`, `ai_broad`) will be
+  computed and differences reported, so this resolves itself empirically.
+- **Citation half-life methodology.** Cohort-based approximation over
+  `counts_by_year` is the intended approach. The exact assumptions —
+  cohort window, the definition of "half-life" in a citation-counting
+  context — need to be documented before implementing the gold model.
 
-- **OpenAlex subfield IDs for AI** — The classification rule uses display names
-  (`Artificial Intelligence`, `Computer Vision and Pattern Recognition`). The
-  exact numeric subfield IDs need to be pinned via the API before the dbt
-  staging models can filter on them reliably.
-- **Citation half-life methodology** — Cohort-based approximation is the
-  intended approach, but the exact assumptions need to be documented before
-  implementation. The approximation relies on `counts_by_year`; document what
-  "half-life" means in this context.
+## Infrastructure
 
-### Infrastructure
+- **External vs. native BigQuery tables.** Start with external tables over
+  GCS parquet; switch to native if query performance or cost demand it.
+  Decision deferred to wiring the warehouse load.
+- **`dagster-dbt` integration mode.** Native integration vs. shelling out to
+  dbt. Decide when wiring Dagster orchestration.
+- **GCS `_SUCCESS` marker for bronze upload.** Locally, parquet presence is
+  the completion signal (Invariant 2 in bronze design). Whether GCS object
+  semantics need an additional `_SUCCESS` marker — for upload races,
+  eventual consistency, or partial multi-object uploads — is unresolved.
+  Extraction faced and rejected the analogous question for local disk;
+  revisit specifically for GCS when the upload step is built.
 
-- **External vs. native BigQuery tables** — Try external tables (Parquet on
-  GCS) first. Decide whether to switch to native BigQuery tables based on
-  query performance and cost. A grounded cost/performance comparison is
-  deferred; revisit when wiring the warehouse load.
-- **`dagster-dbt` integration** — Native `dagster-dbt` integration vs.
-  shelling out to dbt. Decide when wiring Dagster orchestration.
-- **GCS path convention for bronze upload** — Provisional choice:
-  `gs://{bucket}/bronze/publication_year={year}/{year}.parquet` (Hive-style
-  partition layout, friendly to BigQuery external-table partition pruning).
-  Confirm when the cloud lift happens.
-- **GCS `_SUCCESS` marker** — Bronze uses Parquet presence as the completion
-  signal locally. Whether GCS object semantics need an additional `_SUCCESS`
-  marker (e.g. because of upload races, eventual consistency, or partial
-  multi-object uploads) is unresolved. Extraction faced and rejected the
-  analogous question for local disk; revisit specifically for GCS.
+## Pipeline Boundaries
 
-### Pipeline Boundaries
-
-- **Deferred profiling pass** — Extraction deferred a full null-rate /
+- **Deferred profiling pass.** Extraction deferred a full null-rate /
   filter-conformance scan over all records. Bronze is scoped as pure
-  conversion and does *not* own it. Its home — a standalone profiling step or
-  dbt staging tests — is undecided and must be assigned before silver.
-- **Raw JSONL archival** — Decided: raw JSONL stays local, never uploads to
-  GCS (it is a one-time intermediate consumed by bronze). Open sub-question:
-  do we want a per-year tarball archive for reproducibility insurance, or
-  rely on "extraction is re-runnable from OpenAlex"? No decision yet.
-
----
-
-## Project Structure & Cloud Boundary — Settled
-
-The following decisions are settled here and should be reflected in
-`docs/architecture.md` (or a new ADR) before this section is removed.
-
-### Tool composition
-
-- **Terraform** provisions cloud infrastructure (GCS bucket, BigQuery dataset,
-  IAM, service accounts). Runs out-of-band from data runs.
-- **dbt** does transformation *inside the warehouse*: bronze Parquet is its
-  input, silver and gold are dbt models. dbt does no extraction and no file
-  movement.
-- **Dagster** is the orchestrator: extraction and bronze become Dagster
-  assets/ops; dbt models become Dagster assets via `dagster-dbt`. Dagster
-  owns the DAG, the schedule, and retries.
-
-### Repository layout
-
-```
-/data           local extract + bronze data; not committed
-/docs           architecture, ADRs, data model
-/src/openalex_pipeline/
-    extraction/                 existing Python module
-    bronze/                     new Python module (see Bronze Implementation below)
-    orchestration/              Dagster definitions (later)
-/dbt/                           self-contained dbt project
-    dbt_project.yml
-    profiles.yml                two targets: dev (DuckDB), prod (BigQuery)
-    models/staging/             reads bronze
-    models/silver/
-    models/gold/
-    macros/
-/terraform/                     cloud infra
-/tests                          pytest for Python modules
-/scripts /notebooks             one-offs, exploration
-```
-
-### Silver and gold are dbt-only
-
-No `src/openalex_pipeline/silver/` or `.../gold/`. Silver and gold are dbt
-models under `/dbt/models/`. Bronze is the last Python package and the handoff
-point between the Python pipeline and dbt.
-
-### Local / cloud boundary
-
-Decided: **upload bronze Parquet to GCS; do not lift extraction to cloud.**
-
-- Extraction and bronze run locally. Extraction is a manual, daily,
-  credit-limited pull against a third-party API — bottlenecked by OpenAlex's
-  free tier, not compute — and is inherently a laptop-shaped job.
-- Bronze's output Parquet uploads to GCS. BigQuery reads it (external tables
-  first, per `SPECS.md`). dbt transforms inside BigQuery.
-- This satisfies the project's "use cloud + a DWH" requirement: the data
-  warehouse and modeling layer are cloud, the acquisition layer is local.
-  This is a deliberate architectural boundary, not a cost workaround.
-
-### dbt development
-
-Earlier plans to develop dbt models locally with duckdb backend have been dropped:
-After bronze, we move everything to the cloud already and develop there on a smaller
-subset.
-Reasoning: SQL dialects between DuckDB and BigQuery diverge and we don't want to duplicate
-work unnecessarily.
+  conversion and does not own it. Its home — a standalone profiling step
+  or dbt staging tests — is undecided. Must be assigned before silver.
+- **Raw JSONL archival.** Settled that raw JSONL stays local and does not
+  upload to GCS (it is a one-time intermediate). Open sub-question: do we
+  want per-year tarball archives for reproducibility insurance, or rely on
+  "extraction is re-runnable from OpenAlex" as the recovery story? No
+  decision yet.
+- **Bronze → GCS upload: where it lives.** The upload step's contract
+  ("write parquet to a root path") is orthogonal to bronze itself. Whether
+  it lives as a standalone script, a step in the bronze package, or a
+  Dagster asset is open. Lean: separate stage, eventually a Dagster asset.
