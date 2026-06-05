@@ -77,6 +77,11 @@ class YearIngestResult:
     bronze_row_count and duplicate_id_count are populated only for a freshly
     ingested (READY -> written) year; None for INGESTED and PENDING.
 
+    count_mismatch is the extraction-forwarded flag from _YEAR_REPORT.json,
+    populated only on the freshly-ingested path (where the report is read);
+    None otherwise. It lets the runner surface the non-blocking warning live,
+    per year, without re-reading the report.
+
     bronze_file_path is the ABSOLUTE path to {year}.parquet for INGESTED and
     freshly written years; None for PENDING. (The manifest's bronze_file_path
     column is relative to bronze_root -- deliberately a different field for a
@@ -87,6 +92,7 @@ class YearIngestResult:
     state: YearState
     bronze_row_count: int | None = None
     duplicate_id_count: int | None = None
+    count_mismatch: bool | None = None
     bronze_file_path: Path | None = None
 
 
@@ -143,7 +149,8 @@ def ingest_year(extract_root: Path, bronze_root: Path, year: int) -> YearIngestR
     if null_ids:
         raise IntegrityError(f"year {year}: {null_ids} record(s) with null id")
 
-    records_fetched = _load_report(extract_root, year)["records_fetched"]
+    report = _load_report(extract_root, year)
+    records_fetched = report["records_fetched"]
     if frame.height != records_fetched:
         raise IntegrityError(
             f"year {year}: bronze_row_count {frame.height} != "
@@ -158,6 +165,7 @@ def ingest_year(extract_root: Path, bronze_root: Path, year: int) -> YearIngestR
         state,
         bronze_row_count=frame.height,
         duplicate_id_count=duplicate_id_count,
+        count_mismatch=report.get("count_mismatch"),
         bronze_file_path=parquet_path.resolve(),
     )
 

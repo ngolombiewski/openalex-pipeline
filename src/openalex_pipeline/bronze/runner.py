@@ -8,8 +8,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
+from loguru import logger
 
-from .core import ingest_year
+from .core import YearIngestResult, ingest_year
 from .manifest import build_manifest, write_manifest
 
 
@@ -17,13 +18,43 @@ def run(extract_root: Path, bronze_root: Path, years: list[int]) -> pl.DataFrame
     """Ingest every READY year in `years`, then rebuild and write the manifest.
 
     ingest_year classifies internally and short-circuits INGESTED/PENDING years,
-    so this is just a loop. CorruptedState and IntegrityError propagate -- bronze
-    fails loud and the run stops. `years` scopes both ingestion and the manifest.
-    Idempotent: re-running re-classifies done years as INGESTED and skips them.
+    so this is just a loop. Each year is logged the moment it is processed, so
+    progress is visible live rather than only in a summary at the end.
+    CorruptedState and IntegrityError propagate -- bronze fails loud and the run
+    stops. `years` scopes both ingestion and the manifest. Idempotent: re-running
+    re-classifies done years as INGESTED and skips them.
     """
     for year in years:
-        ingest_year(extract_root, bronze_root, year)
+        result = ingest_year(extract_root, bronze_root, year)
+        _log_year(result)
 
     manifest = build_manifest(extract_root, bronze_root, years)
-    write_manifest(bronze_root, manifest)
+    path = write_manifest(bronze_root, manifest)
+    logger.info(f"manifest written: {path} ({len(years)} year(s))")
     return manifest
+
+
+# --- Internal ---------------------------------------------------------------
+
+def _log_year(result: YearIngestResult) -> None:
+    """Log one year's outcome live, surfacing non-blocking warnings (smoke alarms).
+
+    A freshly written or already-present year reports as "ingested" (the parquet
+    exists); otherwise the classification state is reported as-is.
+    """
+    year = result.year
+    status = "ingested" if result.bronze_file_path is not None else result.state.value
+    if result.bronze_row_count is not None:
+        logger.info(f"{year}: {status} (bronze_row_count={result.bronze_row_count})")
+    else:
+        logger.info(f"{year}: {status}")
+
+    if result.duplicate_id_count:
+        logger.warning(
+            f"{year}: {result.duplicate_id_count} duplicate id(s) in bronze "
+            "(non-blocking; cause may be source churn or disk corruption)"
+        )
+    if result.count_mismatch:
+        logger.warning(
+            f"{year}: extraction reported count_mismatch (non-blocking)"
+        )

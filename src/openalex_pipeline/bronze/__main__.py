@@ -1,6 +1,7 @@
 """Bronze CLI entrypoint: `python -m openalex_pipeline.bronze`.
 
-Intentionally thin: parse args, build the years list, call run(), log a summary.
+Intentionally thin: parse args, build the years list, call run(). Per-year
+progress logging lives in the runner, emitted as each year is processed.
 No classification or ingestion logic lives here.
 """
 
@@ -9,8 +10,6 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-
-from loguru import logger
 
 from .runner import run
 
@@ -99,8 +98,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     extract_root, bronze_root = resolve_roots(args)
     years = build_years_list(extract_root, args.years)
-    manifest = run(extract_root, bronze_root, years)
-    _log_summary(manifest)
+    run(extract_root, bronze_root, years)
 
 
 # --- Internal ---------------------------------------------------------------
@@ -113,25 +111,6 @@ def _resolve_one(flag: Path | None, base: Path | None, name: str, flag_name: str
     raise SystemExit(
         f"{flag_name} not given and {OPENALEX_DATA_ROOT_ENV} is not set"
     )
-
-
-def _log_summary(manifest) -> None:
-    """Log a per-year summary, surfacing non-blocking warnings (smoke alarms)."""
-    for row in manifest.iter_rows(named=True):
-        year = row["publication_year"]
-        logger.info(
-            f"{year}: {row['status']} "
-            f"(bronze_row_count={row['bronze_row_count']})"
-        )
-        if row["duplicate_id_count"]:
-            logger.warning(
-                f"{year}: {row['duplicate_id_count']} duplicate id(s) in bronze "
-                "(non-blocking; cause may be source churn or disk corruption)"
-            )
-        if row["count_mismatch"]:
-            logger.warning(
-                f"{year}: extraction reported count_mismatch (non-blocking)"
-            )
 
 
 if __name__ == "__main__":
