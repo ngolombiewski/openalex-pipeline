@@ -6,6 +6,14 @@
 *-credentials.json
 service-account*.json
 
+# Terraform
+.terraform/
+terraform.tfvars
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+
 # AI agents
 .agents/
 .codex/
