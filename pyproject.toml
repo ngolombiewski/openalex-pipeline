@@ -9,6 +9,7 @@ dependencies = [
     "dagster>=1.13.0",
     "dagster-webserver>=1.13.0",
     "duckdb>=1.5.2",
+    "google-cloud-storage>=3.11.0",
     "loguru>=0.7.3",
     "orjson>=3.11.8",
     "polars>=1.39.3",
