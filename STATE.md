@@ -27,14 +27,9 @@ stale state is worse than no state.
   (~4.6 GB). Manifest written and verified: 77 rows, sizes match local files
   exactly. Re-run is fully idempotent (skips all 77).
 
-## In Progress
-
-- **Bronze code review** — manual line-by-line review. Running in
-  parallel with downstream planning so nothing blocks on it.
-
 ## Next
 
-1. Upload code review.
+1. Code review on bronze and upload modules. -> done
 2. BigQuery external tables over GCS parquet. This is where the
    external-vs-native question gets answered.
 3. dbt project init against BigQuery. Dev target on a small dataset (1–2
