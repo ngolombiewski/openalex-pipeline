@@ -21,8 +21,11 @@ stale state is worse than no state.
 - **Upload module** — designed (`docs/upload-design.md`), contracts pinned,
   tested, implementation complete (`python -m openalex_pipeline.upload`).
   Uploads bronze parquet to GCS Hive-partitioned for BigQuery; derived upload
-  manifest at `gs://{bucket}/upload/_MANIFEST.parquet`. Not yet run against the
-  cloud; code review pending.
+  manifest at `gs://{bucket}/upload/_MANIFEST.parquet`. Code review pending.
+- **Bronze parquet in GCS** — all 77 years (1950–2026) uploaded to
+  `gs://openalex-pipeline-bronze/bronze/publication_year=YYYY/YYYY.parquet`
+  (~4.6 GB). Manifest written and verified: 77 rows, sizes match local files
+  exactly. Re-run is fully idempotent (skips all 77).
 
 ## In Progress
 
@@ -31,8 +34,7 @@ stale state is worse than no state.
 
 ## Next
 
-1. Run the upload module against the cloud for the first time; verify objects
-   and manifest land as expected. Upload code review.
+1. Upload code review.
 2. BigQuery external tables over GCS parquet. This is where the
    external-vs-native question gets answered.
 3. dbt project init against BigQuery. Dev target on a small dataset (1–2
