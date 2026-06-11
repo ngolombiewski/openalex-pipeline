@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-06-06*
+*Last updated: 2026-06-10*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -26,23 +26,40 @@ stale state is worse than no state.
   `gs://openalex-pipeline-bronze/bronze/publication_year=YYYY/YYYY.parquet`
   (~4.6 GB). Manifest written and verified: 77 rows, sizes match local files
   exactly. Re-run is fully idempotent (skips all 77).
+- **Warehouse foundation design** — `docs/staging-design.md` covers Terraform
+  datasets, the bronze external table, dbt init, and the staging model.
+  External-vs-native answered: external table as dbt source, native from
+  staging onward.
+- **BigQuery datasets + bronze external table** — Terraform provisions
+  `openalex_raw` (external table), `openalex_analytics` (dbt prod),
+  `openalex_analytics_dev` (dbt dev), all in `EU`. External table
+  `openalex_raw.bronze_external` over the GCS parquet, CUSTOM Hive
+  partitioning, pinned 20-column schema (+ `publication_year` from the
+  partition key; `ignore_changes = [schema]` suppresses the API's appended
+  partition column, which would otherwise force-replace every plan). Gate
+  verified: 77 years, single `INT64` `publication_year`, per-year counts match
+  `bronze_row_count` in the manifest exactly (14,775,131 rows). Partition
+  pruning confirmed via bytes-billed (decade slice ≈ 7.8 MB vs 118 MB full
+  scan on one column). Terraform refactored into per-concern files
+  (`versions/providers/variables/storage/bigquery/outputs.tf`).
 
 ## Next
 
-1. Code review on bronze and upload modules. -> done
-2. BigQuery external tables over GCS parquet. This is where the
-   external-vs-native question gets answered.
-3. dbt project init against BigQuery. Dev target on a small dataset (1–2
-   years) for fast iteration; prod target on the full corpus.
-4. dbt staging: parse the eight nested JSON-string columns; apply data
-   quality filters.
-5. dbt silver: AI classification (`ai_strict` and `ai_broad` ablations),
-   field flattening for the analytical questions.
-6. dbt gold: aggregates answering Q1/Q2/Q3 (subfield share, citation
-   half-life, Gini coefficient).
-7. Dagster orchestration: wire extraction, bronze, and dbt as
-   software-defined assets.
-8. Streamlit dashboard.
+(Steps per `docs/staging-design.md` §6; 1–2 are done.)
 
-Items 1–2 are mostly mechanical and parallelizable with bronze code review.
-Item 3 is the next genuinely-designed step.
+3. dbt project init against BigQuery: profiles (dev default / prod opt-in),
+   source declaration, corpus-bounds vars (`year_min`/`year_max`; dev uses a
+   mid-corpus decade slice like 1991–2000).
+4. Sanity-query the source through dbt; confirm pruning end-to-end.
+5. dbt staging `stg_works`: parse the eight nested JSON-string columns, type
+   dates, quality filters, dedup on `id` (≥1 known duplicate). Tests.
+6. Prod run + reconcile counts against the manifest.
+7. dbt silver: AI classification (`ai_strict` and `ai_broad` ablations),
+   field flattening for the analytical questions.
+8. dbt gold: aggregates answering Q1/Q2/Q3 (subfield share, citation
+   half-life, Gini coefficient).
+9. Dagster orchestration: wire extraction, bronze, and dbt as
+   software-defined assets.
+10. Streamlit dashboard.
+
+Silver (7) is the next step that needs a design doc before implementation.
