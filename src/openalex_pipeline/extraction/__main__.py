@@ -7,7 +7,7 @@ Exit codes:
   0 -- run completed, or stopped cleanly on the daily-limit (429). Both are
        expected outcomes; resume next day for the latter.
   1 -- connector or storage failure (RetryExhausted, NonRetryableError,
-       QueryMismatch, CorruptedState).
+       EmptyPageAnomaly, QueryMismatch, CorruptedState).
   2 -- configuration error (missing/invalid env var).
 """
 

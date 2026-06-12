@@ -3,7 +3,9 @@
 Two base classes group failures by origin so that ``__main__`` (and any future
 orchestrator) can catch by category:
 
-    ConnectorError   -- anything raised by the HTTP connector
+    ConnectorError   -- anything wrong with the API exchange. Raised by the
+                        connector, except EmptyPageAnomaly, which the worker
+                        raises (cross-page anomalies are only visible there).
     StorageError     -- anything raised by the storage layer
 
 ``DailyLimitReached`` is deliberately a plain ``ConnectorError`` and *not* a
@@ -37,6 +39,23 @@ class NonRetryableError(ConnectorError):
     -- the request itself, or the entity, is wrong. Contrast RetryExhausted,
     which covers transient statuses (5xx, 403) that were retried and still
     failed. The connector raises this immediately, without backoff.
+    """
+
+
+class EmptyPageAnomaly(ConnectorError):
+    """The API returned an empty results page where one must not occur.
+
+    Raised by the worker, before anything is written to disk, when an empty
+    page arrives WITH a live next_cursor -- mid-stream or as the first page.
+    Not anomalous (and not this exception): an empty page with no cursor,
+    which is either a legitimate zero-result year (first page) or a trailing
+    empty page (the worker skips the write and finalizes).
+
+    This is what makes extraction's promise explicit: the only possibly
+    zero-byte page file is page-0001 of a zero-result year. Bronze asserts
+    exactly that promise when it rejects zero-byte pages in multi-page years.
+    Because nothing is written, the year stays resumable at the same cursor;
+    a rerun retries it, and a persistent anomaly fails loudly every run.
     """
 
 

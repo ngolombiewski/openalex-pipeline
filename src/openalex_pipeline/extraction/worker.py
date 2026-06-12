@@ -14,6 +14,8 @@ The pinned loop (do not deviate)::
 
     if status.state is FRESH:
         records, next_cursor, meta_count = fetch_page(query, "*", api_key)
+        if not records and next_cursor is not None:
+            raise EmptyPageAnomaly      # nothing on disk yet
         initialize_year(root, year, query, meta_count)
         write_page(root, year, records, next_cursor, page_number=1)
         cursor, page_number = next_cursor, 2
@@ -22,6 +24,10 @@ The pinned loop (do not deviate)::
 
     while cursor is not None:
         records, next_cursor, _ = fetch_page(query, cursor, api_key)
+        if not records:
+            if next_cursor is not None:
+                raise EmptyPageAnomaly  # mid-stream hole; nothing written
+            break                       # trailing empty page: skip the write
         write_page(root, year, records, next_cursor, page_number)
         cursor, page_number = next_cursor, page_number + 1
 
@@ -35,6 +41,14 @@ Key points:
     and incremented locally. write_page is handed it; it is never re-read.
   - An IN_PROGRESS year with ``cursor is None`` skips the while loop entirely
     and goes straight to finalize_year (the finalize-pending sub-state).
+  - Empty pages: the worker writes an empty page file ONLY for a zero-result
+    year (empty first page, no cursor) -- extraction's explicit promise to
+    bronze, which rejects zero-byte pages in multi-page years. A trailing
+    empty page (no cursor, page > 1) is a normal end-of-stream shape: the
+    write is skipped and the year finalizes. Skipping is crash-safe -- nothing
+    was written, so a rerun re-fetches the same cursor into the same branch.
+    An empty page WITH a live cursor raises EmptyPageAnomaly before any
+    write, leaving the year resumable at the same cursor.
   - DailyLimitReached / RetryExhausted / NonRetryableError from fetch_page
     propagate untouched. The runner catches DailyLimitReached to return a
     partial run report. The fixed write order guarantees _CURSOR.json is
@@ -49,6 +63,7 @@ from typing import Callable
 from loguru import logger
 
 from . import storage
+from .exceptions import EmptyPageAnomaly
 from .models import YearOutcome, YearState
 
 # Signature of the injected connector: (query, cursor, api_key) -> (records,
@@ -83,6 +98,9 @@ def process_year(
         QueryMismatch, CorruptedState:        from classify_year.
         DailyLimitReached, RetryExhausted,
         NonRetryableError:                          from fetch_page, propagated.
+        EmptyPageAnomaly:   the API returned an empty page with a live
+                            next_cursor. Raised before anything is written;
+                            the year stays resumable at the same cursor.
     """
     status = storage.classify_year(root, year, query)
 
@@ -97,6 +115,11 @@ def process_year(
     if status.state is YearState.FRESH:
         logger.info("year {} is fresh; fetching first page", year)
         records, next_cursor, meta_count = fetch_page(query, "*", api_key)
+        if not records and next_cursor is not None:
+            raise EmptyPageAnomaly(
+                f"year {year}: API returned an empty first page with a live "
+                f"next_cursor (meta.count={meta_count}); nothing written"
+            )
         storage.initialize_year(root, year, query, meta_count)
         storage.write_page(root, year, records, next_cursor, 1)
         logger.info(
@@ -117,6 +140,17 @@ def process_year(
 
     while cursor is not None:
         records, next_cursor, _ = fetch_page(query, cursor, api_key)
+        if not records:
+            if next_cursor is not None:
+                raise EmptyPageAnomaly(
+                    f"year {year}: API returned an empty page with a live "
+                    f"next_cursor at page {page_number} (cursor={cursor!r}); "
+                    "nothing written, year resumable at this cursor"
+                )
+            logger.info(
+                "year {} got trailing empty page {}; skipping write", year, page_number
+            )
+            break
         storage.write_page(root, year, records, next_cursor, page_number)
         logger.info(
             "year {} page {} written: records={} next_cursor={}",

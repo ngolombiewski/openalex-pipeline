@@ -8,6 +8,7 @@ import pytest
 from openalex_pipeline.extraction import worker
 from openalex_pipeline.extraction.exceptions import (
     DailyLimitReached,
+    EmptyPageAnomaly,
     NonRetryableError,
     QueryMismatch,
 )
@@ -212,6 +213,113 @@ def test_finalize_pending_in_progress_finalizes_without_fetch(
         ("classify_year", ROOT, YEAR, QUERY),
         ("finalize_year", ROOT, YEAR),
     ]
+
+
+def test_zero_result_fresh_year_writes_single_empty_page_and_finalizes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Empty first page with no cursor is a legitimate zero-result year: the
+    # zero-byte page-0001 IS written (bronze's empty-year path depends on it).
+    report = make_report(records_fetched=0, page_count=1, expected_count=0)
+    storage = FakeStorage(YearStatus(YearState.FRESH), report=report)
+    fetch_page = FakeFetchPage([([], None, 0)])
+    install_storage(monkeypatch, storage)
+
+    outcome = worker.process_year(ROOT, YEAR, QUERY, API_KEY, fetch_page)
+
+    assert outcome.status == "completed"
+    assert storage.calls == [
+        ("classify_year", ROOT, YEAR, QUERY),
+        ("initialize_year", ROOT, YEAR, QUERY, 0),
+        ("write_page", ROOT, YEAR, [], None, 1),
+        ("finalize_year", ROOT, YEAR),
+    ]
+
+
+def test_trailing_empty_page_is_not_written_and_year_finalizes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Empty page with no cursor after page 1: end-of-stream shape. The write
+    # is skipped (no zero-byte page file in a multi-page year) and the year
+    # finalizes over the pages already on disk.
+    report = make_report(records_fetched=1, page_count=1, expected_count=1)
+    storage = FakeStorage(YearStatus(YearState.FRESH), report=report)
+    fetch_page = FakeFetchPage(
+        [
+            ([{"id": "W1"}], "cursor-2", 1),
+            ([], None, 1),
+        ]
+    )
+    install_storage(monkeypatch, storage)
+
+    outcome = worker.process_year(ROOT, YEAR, QUERY, API_KEY, fetch_page)
+
+    assert outcome.status == "completed"
+    assert storage.calls == [
+        ("classify_year", ROOT, YEAR, QUERY),
+        ("initialize_year", ROOT, YEAR, QUERY, 1),
+        ("write_page", ROOT, YEAR, [{"id": "W1"}], "cursor-2", 1),
+        ("finalize_year", ROOT, YEAR),
+    ]
+
+
+def test_resumed_year_with_trailing_empty_page_skips_write_and_finalizes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The stale-cursor resume shape: the persisted cursor fetches an empty
+    # page with no cursor. Nothing is written; the year finalizes.
+    storage = FakeStorage(YearStatus(YearState.IN_PROGRESS, cursor="cursor-3", next_page=3))
+    fetch_page = FakeFetchPage([([], None, 99)])
+    install_storage(monkeypatch, storage)
+
+    outcome = worker.process_year(ROOT, YEAR, QUERY, API_KEY, fetch_page)
+
+    assert outcome.status == "completed"
+    assert fetch_page.calls == [(QUERY, "cursor-3", API_KEY)]
+    assert storage.calls == [
+        ("classify_year", ROOT, YEAR, QUERY),
+        ("finalize_year", ROOT, YEAR),
+    ]
+
+
+def test_mid_stream_empty_page_with_live_cursor_raises_before_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Empty page WITH a live cursor is anomalous API behavior: raise before
+    # writing anything, so the year stays resumable at the same cursor.
+    storage = FakeStorage(YearStatus(YearState.FRESH))
+    fetch_page = FakeFetchPage(
+        [
+            ([{"id": "W1"}], "cursor-2", 2),
+            ([], "cursor-3", 2),
+        ]
+    )
+    install_storage(monkeypatch, storage)
+
+    with pytest.raises(EmptyPageAnomaly):
+        worker.process_year(ROOT, YEAR, QUERY, API_KEY, fetch_page)
+
+    assert storage.calls == [
+        ("classify_year", ROOT, YEAR, QUERY),
+        ("initialize_year", ROOT, YEAR, QUERY, 2),
+        ("write_page", ROOT, YEAR, [{"id": "W1"}], "cursor-2", 1),
+    ]
+    assert not any(call[0] == "finalize_year" for call in storage.calls)
+
+
+def test_empty_first_page_with_live_cursor_raises_before_initialize(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The fresh-path variant of the anomaly: raise before initialize_year, so
+    # a first-fetch anomaly leaves nothing on disk.
+    storage = FakeStorage(YearStatus(YearState.FRESH))
+    fetch_page = FakeFetchPage([([], "cursor-2", 500)])
+    install_storage(monkeypatch, storage)
+
+    with pytest.raises(EmptyPageAnomaly):
+        worker.process_year(ROOT, YEAR, QUERY, API_KEY, fetch_page)
+
+    assert storage.calls == [("classify_year", ROOT, YEAR, QUERY)]
 
 
 def test_daily_limit_reached_from_fetch_propagates(
