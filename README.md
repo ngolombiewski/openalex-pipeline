@@ -5,9 +5,7 @@
 > gold, Dagster orchestration, and the dashboard are next.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/) corpus,
-built to ask how AI has reshaped Computer Science research. It is a portfolio /
-learning project: the pipeline and its infrastructure are as much the point as the
-analysis they produce.
+built to ask how AI has reshaped Computer Science research.
 
 The data is the OpenAlex `works` entity filtered to Computer Science
 (`primary_topic.field.id:17`), 1950 to present — roughly **14.7 M records**.
@@ -50,33 +48,19 @@ the cloud infrastructure out of band.
 
 ## Key design choices
 
-The decisions below are the ones a reviewer is most likely to want explained. Fuller
-rationale lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the per-layer design docs.
+Full rationale lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the per-layer design docs.
 
-- **Local extraction + bronze, cloud from GCS onward.** The pull is bounded by
-  OpenAlex's free-tier credits, not by compute — a laptop-shaped job that cloud would
-  only complicate. The warehouse work (GCS + BigQuery + dbt) is where the project's
-  weight deliberately sits. The boundary is a choice, not a cost workaround.
-
-- **Filesystem as source of truth.** Pipeline state lives on disk: a per-year report
-  signals extraction completion, the presence of `{year}.parquet` signals bronze. The
-  manifest is *derived* and rebuilt wholesale each run. No separate state store.
+- **Local extraction + bronze, then cloud upload.** The fundamental constraint on the
+extraction is the OpenAlex free credit limit. In order to minimize cloud expenses, we
+land the data locally (~49 GB) and compress to parquet (<5 GB), then upload to a GCS
+bucket.
 
 - **Resumable extraction by construction, not by reconciliation.** The pull is a
-  multi-day, credit-limited job sharded one calendar year at a time. The cursor for
-  the *next* page is written before that page's file, and page writes always overwrite
-  by number — so a crash costs exactly one re-fetched page on resume, with no staleness
-  check or cleanup. Hitting the daily free-tier limit is a clean stop (typed, caught by
-  the runner), not an error; the next day's run picks up where it left off.
+  multi-day, credit-limited job sharded one calendar year at a time. Hitting the daily
+  free-tier limit is a clean stop; the next day's run picks up where it left off.
 
-- **Nested fields land as raw JSON strings in bronze.** The eight nested OpenAlex
-  fields are stored verbatim, not as Parquet structs. Inferring structs and encoding
-  them back fabricates explicit `null`s for keys a record never had; raw strings
-  preserve source fidelity. dbt staging parses them once, into a native table.
-
-- **`primary_topic` only for classification.** Simpler, avoids double-counting, and
-  more defensible than second-guessing OpenAlex via the full topics array — a work's
-  primary topic reflects its core contribution.
+- **Filesystem as source of truth.** Pipeline state lives on disk. Atomic write pattern
+(tmp -> flush -> fsync -> rename) is employed throughout extraction.
 
 - **Corruption is loud.** Malformed JSONL, null primary keys, query-mix across a
   landing zone, and count mismatches all fail the affected unit immediately. Known
@@ -107,8 +91,8 @@ docs/               per-layer design docs and reference material
 Requires Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/). Configuration is via
 environment variables; see [`.env.example`](.env.example).
 
-Each stage is a thin `python -m` module. Extraction is env-only; bronze and
-upload take the data root from `OPENALEX_DATA_ROOT` (or explicit `--*-root` flags).
+Each stage is a thin module. Extraction is env-only; bronze and upload take the data
+root from `OPENALEX_DATA_ROOT` (or explicit `--*-root` flags).
 
 ```bash
 uv sync
