@@ -25,11 +25,20 @@ class DailyLimitReached(ConnectorError):
     Expected roughly once per day. Raised by the connector, propagated
     untouched by the worker, and caught by the runner so it can return a
     partial run report. Resume the next day.
+
+    429 is specifically the daily cap, not the burst limiter: OpenAlex signals
+    per-second burst overruns with 403 (see RetryExhausted), so mapping every
+    429 to a clean daily stop is sound.
     """
 
 
 class RetryExhausted(ConnectorError):
-    """A retryable status (5xx, 403) still failing after ``MAX_RETRIES``."""
+    """A retryable status (5xx, 403) still failing after ``MAX_RETRIES``.
+
+    403 is retryable because it is OpenAlex's burst rate-limit response
+    (verified empirically on sub-second async bursts, and per the API docs),
+    not an auth failure. Contrast 429, the daily cap (DailyLimitReached).
+    """
 
 
 class NonRetryableError(ConnectorError):

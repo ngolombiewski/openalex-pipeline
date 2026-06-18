@@ -23,12 +23,12 @@ On-disk layout for one year::
       _YEAR_REPORT.json   written last; its presence == year complete
 
 INTERNAL HELPERS (not part of the contract, prefixed ``_``): atomic write
-(tmp + flush + rename, no fsync), page-file path construction, JSON read/write,
+(tmp + flush + fsync + rename), page-file path construction, JSON read/write,
 line counting. Their existence and signatures are an implementation detail.
 
 INVARIANTS enforced here:
   - _META.json and _YEAR_REPORT.json are immutable once written.
-  - Atomic writes for every file (tmp + flush + rename).
+  - Atomic, durable writes for every file (tmp + flush + fsync + rename).
   - write_page always writes a page file, even for an empty page (a zero-byte
     file), so ">=1 page file for any non-fresh year" always holds.
   - Any file combination that is not FRESH / IN_PROGRESS / COMPLETE -> raise
@@ -68,9 +68,17 @@ def _now_utc() -> str:
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    # fsync before rename: without it a power loss can make the rename durable
+    # while the data is not, leaving a truncated page behind an already-advanced
+    # cursor -- the one corruption the resume protocol cannot detect. The parent
+    # directory is deliberately not fsynced: if the rename itself is lost, the
+    # cursor advance is lost with it and the page is simply re-fetched.
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(data)
+    with open(tmp, "wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
     os.replace(tmp, path)
 
 

@@ -106,7 +106,9 @@ def fetch_page(
                 raise NonRetryableError(
                     f"HTTP {status} for cursor={cursor!r}: {response.text[:200]}"
                 )
-            # 403 or 5xx -> retryable.
+            # 403 or 5xx -> retryable. 403 is OpenAlex's burst rate-limit
+            # response (verified empirically on sub-second bursts, and per the
+            # API docs), not an auth failure -- backoff is the right treatment.
             last_failure = f"HTTP {status}"
 
         if attempt + 1 < _MAX_RETRIES:
