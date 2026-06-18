@@ -101,6 +101,29 @@ def test_integrity_error_propagates_and_stops(extract_root, bronze_root):
         run(extract_root, bronze_root, [2002])
 
 
+def test_mixed_query_corpus_fails_before_any_ingestion(extract_root, bronze_root):
+    # Pre-flight homogeneity check: a mixed corpus raises before a single shard
+    # is ingested -- 2001 (which precedes the offending 2002 in the loop) must
+    # not have been written, and no manifest exists.
+    make_extract_year(extract_root, 2001, records=[make_record("W1")])
+    make_extract_year(
+        extract_root,
+        2002,
+        records=[make_record("W2")],
+        report={
+            "query": "works?filter=primary_topic.field.id:99,"
+            "publication_year:2002&select=id,title,publication_year&per_page=200"
+        },
+    )
+
+    with pytest.raises(IntegrityError):
+        run(extract_root, bronze_root, [2001, 2002])
+
+    assert not (bronze_root / "2001.parquet").exists()
+    assert not (bronze_root / "2002.parquet").exists()
+    assert not (bronze_root / "_MANIFEST.parquet").exists()
+
+
 def test_corrupted_state_propagates(extract_root, bronze_root):
     # R7
     make_extract_year(extract_root, 2002, records=[make_record("W1")])

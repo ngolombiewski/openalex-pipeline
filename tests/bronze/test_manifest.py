@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import os
 
+import pytest
 
 from openalex_pipeline.bronze.core import ingest_year
+from openalex_pipeline.bronze.errors import IntegrityError
 from openalex_pipeline.bronze.manifest import build_manifest, write_manifest
 
 from .conftest import (
@@ -106,14 +108,33 @@ def test_count_mismatch_forwarded_verbatim(extract_root, bronze_root):
 
 def test_bronze_row_count_equals_records_fetched_when_ingested(extract_root, bronze_root):
     # M6: the divergence case is a loud IntegrityError at ingestion (test_core
-    # C20), so any written year necessarily has bronze_row_count ==
-    # records_fetched. The manifest records both for visibility; build_manifest
-    # does not re-check or raise.
+    # C20), and build_manifest re-asserts the same invariant on every rebuild
+    # (test_stale_parquet_raises_integrity_error below), so any built manifest
+    # necessarily has bronze_row_count == records_fetched.
     make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record("W2")])
     ingest_year(extract_root, bronze_root, 2002)
 
     row = manifest_row(build_manifest(extract_root, bronze_root, [2002]), 2002)
     assert row["bronze_row_count"] == row["records_fetched"] == 2
+
+
+def test_stale_parquet_raises_integrity_error(extract_root, bronze_root):
+    # The write-time count invariant, re-asserted at rebuild: re-extracting a
+    # year after it was ingested leaves a stale parquet behind an updated
+    # report, and the manifest refuses to paper over it.
+    make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record("W2")])
+    ingest_year(extract_root, bronze_root, 2002)
+
+    # Re-extraction changed the corpus: the report now claims three records,
+    # but the ingested parquet still holds two.
+    make_extract_year(
+        extract_root,
+        2002,
+        records=[make_record("W1"), make_record("W2"), make_record("W3")],
+    )
+
+    with pytest.raises(IntegrityError):
+        build_manifest(extract_root, bronze_root, [2002])
 
 
 def test_ingested_at_derives_from_parquet_mtime(extract_root, bronze_root):

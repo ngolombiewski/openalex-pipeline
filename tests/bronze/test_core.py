@@ -12,6 +12,7 @@ import pytest
 
 from openalex_pipeline.bronze.core import (
     YearState,
+    assert_query_homogeneity,
     classify_year,
     ingest_year,
     write_empty_year,
@@ -65,6 +66,60 @@ def test_parquet_present_wins_over_corrupt_extraction(extract_root, bronze_root)
     make_extract_year(extract_root, 2002, complete=True, no_pages=True)
     (bronze_root / "2002.parquet").write_bytes(b"placeholder")
     assert classify_year(extract_root, bronze_root, 2002) is YearState.INGESTED
+
+
+# --- assert_query_homogeneity ------------------------------------------------
+
+def test_homogeneity_passes_when_queries_differ_only_by_year(extract_root):
+    # The per-shard publication_year clause is masked before comparison, so the
+    # canonical same-query-different-year corpus is homogeneous.
+    make_extract_year(extract_root, 2001, records=[make_record("W1")])
+    make_extract_year(extract_root, 2002, records=[make_record("W2")])
+
+    assert_query_homogeneity(extract_root, [2001, 2002])
+
+
+def test_homogeneity_skips_pending_and_absent_years(extract_root):
+    # PENDING years store no query; absent years store nothing. Neither
+    # participates, so a single completed shard is trivially homogeneous.
+    make_extract_year(extract_root, 2001, records=[make_record("W1")])
+    make_extract_year(extract_root, 2002, complete=False)
+
+    assert_query_homogeneity(extract_root, [2001, 2002, 2003])
+
+
+def test_mixed_filters_raise_integrity_error(extract_root):
+    make_extract_year(extract_root, 2001, records=[make_record("W1")])
+    make_extract_year(
+        extract_root,
+        2002,
+        records=[make_record("W2")],
+        report={
+            "query": "works?filter=primary_topic.field.id:99,"
+            "publication_year:2002&select=id,title,publication_year&per_page=200"
+        },
+    )
+
+    with pytest.raises(IntegrityError):
+        assert_query_homogeneity(extract_root, [2001, 2002])
+
+
+def test_mixed_selects_raise_integrity_error(extract_root):
+    # Homogeneity covers the whole query string, not just the filter: a
+    # different select clause is a different corpus too.
+    make_extract_year(extract_root, 2001, records=[make_record("W1")])
+    make_extract_year(
+        extract_root,
+        2002,
+        records=[make_record("W2")],
+        report={
+            "query": "works?filter=primary_topic.field.id:17,"
+            "publication_year:2002&select=id,title&per_page=200"
+        },
+    )
+
+    with pytest.raises(IntegrityError):
+        assert_query_homogeneity(extract_root, [2001, 2002])
 
 
 # --- ingest_year: READY happy path ------------------------------------------
