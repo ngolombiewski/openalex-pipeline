@@ -35,7 +35,7 @@ JSONL on local disk          ── extraction layer
    │  (Polars)
    ▼
 Parquet on local disk        ── bronze layer
-   │  (gsutil)
+   │  (upload module)
    ▼
 Parquet on GCS
    │  (BigQuery external tables)
@@ -72,7 +72,7 @@ next. Internal design is in the layer's own design doc.
 
 The eight nested OpenAlex fields are landed in bronze as **raw JSON strings**,
 verbatim. dbt staging parses them. The choice and its rationale are in
-`bronze-design.md`.
+`docs/design-archive/bronze-design.md`.
 
 ## Architectural Boundaries
 
@@ -112,9 +112,9 @@ further. It never uploads to GCS.
 - **dbt** does transformation *inside the warehouse*: bronze Parquet (via
   BigQuery external tables) is its input; silver and gold are dbt models.
   dbt does no extraction and no file movement.
-- **Dagster** is the orchestrator. Extraction and bronze become Dagster
-  assets; dbt models become Dagster assets via `dagster-dbt`. Dagster owns
-  the DAG, the schedule, and retries.
+- **Dagster** is the orchestrator. Extraction, bronze, and upload become
+  Dagster assets; dbt models become Dagster assets via `dagster-dbt`. Dagster
+  owns the DAG, the schedule, and retries.
 
 ## Repository Layout
 
@@ -125,6 +125,7 @@ further. It never uploads to GCS.
 /src/openalex_pipeline/
     extraction/         Python module — OpenAlex API → local JSONL
     bronze/             Python module — JSONL → Parquet
+    upload/             Python module — bronze Parquet → GCS
     orchestration/      Dagster definitions (later)
 /dbt/                   self-contained dbt project
     dbt_project.yml
@@ -139,16 +140,19 @@ further. It never uploads to GCS.
 ```
 
 **Silver and gold are dbt-only.** There is no `src/openalex_pipeline/silver/`
-or `.../gold/`. Bronze is the last Python package and the handoff point
-between the Python pipeline and dbt.
+or `.../gold/`. Bronze is the last Python *transformation* layer; upload only
+moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
 
 ## Per-Layer Pointers
 
 - **Extraction** — Python module at `src/openalex_pipeline/extraction/`.
   Design: `docs/design-archive/extraction-design.md`.
 - **Bronze** — Python module at `src/openalex_pipeline/bronze/`. Design:
-  `docs/bronze-design.md`.
-- **dbt staging / silver / gold** — `dbt/models/`. Design docs to follow as
-  these layers are built.
+  `docs/design-archive/bronze-design.md`.
+- **Upload** — Python module at `src/openalex_pipeline/upload/`. Design:
+  `docs/design-archive/upload-design.md`.
+- **dbt staging** — `dbt/models/staging/`. Design: `docs/staging-design.md`.
+- **dbt silver / gold** — `dbt/models/`. Design docs to follow as these
+  layers are built.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster). To
   follow.

@@ -42,6 +42,13 @@ are reported.
 **Source**: OpenAlex works entity, filtered to Computer Science field
 (`primary_topic.field.id:17`). Year range: 1950 until today.
 
+**Landing-zone rule**: one landing zone = one query. An extraction root and
+its bronze root hold year shards of a single filter/select; bronze asserts
+query homogeneity across all completed shards before ingesting anything and
+fails loudly on a mix. A different filter/select is a different corpus and
+runs as a separate pipeline instance with its own roots (and bucket prefix).
+Provenance therefore stays at year granularity — no per-record origin columns.
+
 **Format**: Parquet — one file per `publication_year` shard
 (`{bronze_root}/{year}.parquet`), not Hive-partitioned. On upload to GCS, a
 Hive-style prefix is added for BigQuery partition pruning; the file itself is

@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-06-10*
+*Last updated: 2026-06-12*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -42,6 +42,16 @@ stale state is worse than no state.
   pruning confirmed via bytes-billed (decade slice ≈ 7.8 MB vs 118 MB full
   scan on one column). Terraform refactored into per-concern files
   (`versions/providers/variables/storage/bigquery/outputs.tf`).
+- **Extraction + bronze hardening (post-review)** — empty-pagefile contract
+  closed (`EmptyPageAnomaly`; only a zero-result year's page-0001 may be
+  zero-byte). fsync added to extraction's atomic write (torn-page-after-
+  power-loss was the one corruption the resume protocol couldn't see).
+  Landing-zone rule pinned in `DATA_MODEL.md` (one zone = one query) and
+  enforced: bronze asserts query homogeneity across shards before ingesting,
+  and the manifest re-asserts `records_fetched == bronze_row_count` on every
+  rebuild (catches stale parquet after a re-extraction). 403-vs-429 semantics
+  (burst limit vs daily cap, empirically verified) documented in the
+  connector/exceptions.
 
 ## Next
 
