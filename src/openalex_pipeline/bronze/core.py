@@ -1,4 +1,5 @@
-"""Bronze single-year ingestion: classification and JSONL -> Parquet.
+"""Bronze ingestion: year classification, the corpus-level query-homogeneity
+assertion, and single-year JSONL -> Parquet.
 
 Imports the two leaves (schema, errors). Does NOT import manifest -- ingestion
 and derived state are sibling concerns; the runner is the only place that
@@ -65,6 +66,49 @@ def classify_year(extract_root: Path, bronze_root: Path, year: int) -> YearState
         return YearState.READY
 
     return YearState.PENDING
+
+
+# --- Corpus-level hygiene ----------------------------------------------------
+
+
+def assert_query_homogeneity(extract_root: Path, years: list[int]) -> None:
+    """Assert that every completed year shard in scope stores the same query.
+
+    One landing zone holds one corpus (DATA_MODEL.md, "Landing-zone rule"): a
+    single filter/select across all year shards. Queries are compared as
+    opaque strings after masking each shard's own ``publication_year:{year}``
+    clause -- bronze never interprets filter or select semantics, it only
+    demands that they agree.
+
+    Scope: every year in ``years`` whose _YEAR_REPORT.json exists (READY and
+    INGESTED-with-report). PENDING years store no query and are skipped.
+
+    Raises:
+        IntegrityError: two or more distinct masked queries found. The runner
+            calls this before any ingestion, so a mixed corpus never reaches
+            Parquet.
+    """
+    by_query: dict[str, list[int]] = {}
+    for year in years:
+        if not _report_path(extract_root, year).exists():
+            continue
+        query = _load_report(extract_root, year).get("query")
+        masked = (
+            query.replace(f"publication_year:{year}", "publication_year:*", 1)
+            if isinstance(query, str)
+            else repr(query)
+        )
+        by_query.setdefault(masked, []).append(year)
+
+    if len(by_query) > 1:
+        groups = "\n".join(
+            f"  years {_format_years(group)}: {query}"
+            for query, group in sorted(by_query.items(), key=lambda kv: kv[1][0])
+        )
+        raise IntegrityError(
+            f"{len(by_query)} distinct queries across year shards in one "
+            f"landing zone (one zone = one query):\n{groups}"
+        )
 
 
 # --- Single-year ingestion --------------------------------------------------
@@ -198,6 +242,11 @@ def _page_files(extract_root: Path, year: int) -> list[Path]:
 
 def _load_report(extract_root: Path, year: int) -> dict[str, Any]:
     return json.loads(_report_path(extract_root, year).read_text(encoding="utf-8"))
+
+
+def _format_years(years: list[int]) -> str:
+    shown = ", ".join(str(year) for year in years[:8])
+    return shown if len(years) <= 8 else f"{shown}, +{len(years) - 8} more"
 
 
 def _atomic_write_parquet(frame: pl.DataFrame, path: Path) -> None:

@@ -17,6 +17,8 @@ from typing import Any
 
 import polars as pl
 
+from .errors import IntegrityError
+
 _REPORT_NAME = "_YEAR_REPORT.json"
 
 MANIFEST_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
@@ -42,8 +44,19 @@ def build_manifest(extract_root: Path, bronze_root: Path, years: list[int]) -> p
     The manifest is derived and never authoritative: it is rebuilt wholesale
     from on-disk state. `years` scopes the manifest exactly -- no more, no fewer
     rows. See the contract for per-column semantics.
+
+    Every rebuild re-asserts ingest_year's write-time count invariant as a
+    standing one: for each ingested year with a report, records_fetched ==
+    bronze_row_count. The invariant held when the parquet was written, so a
+    later divergence means the parquet is stale relative to a re-extracted
+    year (or one side was corrupted after the fact).
+
+    Raises:
+        IntegrityError: some ingested year's bronze_row_count diverges from
+            its report's records_fetched.
     """
     rows = [_year_row(extract_root, bronze_root, year) for year in years]
+    _assert_counts_consistent(rows)
     return pl.DataFrame(rows, schema=MANIFEST_SCHEMA, orient="row")
 
 
@@ -58,6 +71,23 @@ def write_manifest(bronze_root: Path, manifest: pl.DataFrame) -> Path:
 
 
 # --- Internal ---------------------------------------------------------------
+
+def _assert_counts_consistent(rows: list[dict[str, Any]]) -> None:
+    stale = [
+        row
+        for row in rows
+        if row["records_fetched"] is not None
+        and row["bronze_row_count"] is not None
+        and row["records_fetched"] != row["bronze_row_count"]
+    ]
+    if stale:
+        detail = "; ".join(
+            f"year {row['publication_year']}: records_fetched="
+            f"{row['records_fetched']} != bronze_row_count={row['bronze_row_count']}"
+            for row in stale
+        )
+        raise IntegrityError(f"stale bronze parquet vs extraction report: {detail}")
+
 
 def _year_row(extract_root: Path, bronze_root: Path, year: int) -> dict[str, Any]:
     parquet = bronze_root / f"{year}.parquet"

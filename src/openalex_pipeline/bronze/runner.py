@@ -10,20 +10,24 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
-from .core import YearIngestResult, YearState, ingest_year
+from .core import YearIngestResult, YearState, assert_query_homogeneity, ingest_year
 from .manifest import build_manifest, write_manifest
 
 
 def run(extract_root: Path, bronze_root: Path, years: list[int]) -> pl.DataFrame:
     """Ingest every READY year in `years`, then rebuild and write the manifest.
 
-    ingest_year classifies internally and short-circuits INGESTED/PENDING years,
-    so this is just a loop. Each year is logged the moment it is processed, so
-    progress is visible live rather than only in a summary at the end.
-    CorruptedState and IntegrityError propagate -- bronze fails loud and the run
-    stops. `years` scopes both ingestion and the manifest. Idempotent: re-running
-    re-classifies done years as INGESTED and skips them.
+    Pre-flight: assert_query_homogeneity over the years in scope (one landing
+    zone = one query) -- a mixed corpus raises IntegrityError before a single
+    shard is ingested. Then ingest_year classifies internally and
+    short-circuits INGESTED/PENDING years, so this is just a loop. Each year is
+    logged the moment it is processed, so progress is visible live rather than
+    only in a summary at the end. CorruptedState and IntegrityError propagate
+    -- bronze fails loud and the run stops. `years` scopes both ingestion and
+    the manifest. Idempotent: re-running re-classifies done years as INGESTED
+    and skips them.
     """
+    assert_query_homogeneity(extract_root, years)
     for year in years:
         result = ingest_year(extract_root, bronze_root, year)
         _log_year(result)

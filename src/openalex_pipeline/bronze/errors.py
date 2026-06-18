@@ -33,15 +33,24 @@ class CorruptedState(BronzeError):
 
 
 class IntegrityError(BronzeError):
-    """A bronze integrity assertion failed during ingestion.
+    """A bronze integrity assertion failed.
 
-    Two assertions, both over a READY year's freshly read frame, before write:
+    Year-level, over a READY year's freshly read frame, before write:
       - Non-null `id` (record-level).
       - bronze_row_count == records_fetched (aggregate): the Parquet row count
         must equal extraction's asserted line count. Duplicates count equally on
         both sides, so a divergence means bronze lost/multiplied rows or a page
         was truncated on disk -- a defect, not source churn.
-
     On failure the year's Parquet is not written, so a re-run re-attempts the
     year cleanly.
+
+    Corpus-level:
+      - Query homogeneity (core.assert_query_homogeneity, run by the runner
+        before any ingestion): every completed shard in scope must store the
+        same query modulo its own publication_year clause. One landing zone =
+        one query (DATA_MODEL.md, "Landing-zone rule").
+      - records_fetched == bronze_row_count, re-asserted for every ingested
+        year on each manifest rebuild: the write-time assertion held when the
+        parquet was written, so a later divergence means the parquet is stale
+        relative to a re-extracted year (or post-hoc corruption).
     """
