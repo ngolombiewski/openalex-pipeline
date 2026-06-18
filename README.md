@@ -1,98 +1,138 @@
 # openalex-pipeline
 
-> **Work in progress.** Extraction and bronze ingestion are complete. dbt modelling and the cloud lift are underway.
+> **Status: work in progress.** Extraction and bronze run locally and are complete;
+> bronze Parquet is in GCS behind a BigQuery external table. dbt staging, silver,
+> gold, Dagster orchestration, and the dashboard are next.
 
-End-to-end batch data pipeline for analysing AI's growth and impact within computer science research. Data source: [OpenAlex](https://openalex.org/) works entity (~14.7 M CS works, 1950–present). DE Zoomcamp capstone project.
+An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/) corpus,
+built to ask how AI has reshaped Computer Science research. It is a portfolio /
+learning project: the pipeline and its infrastructure are as much the point as the
+analysis they produce.
 
-## Analytical questions
+The data is the OpenAlex `works` entity filtered to Computer Science
+(`primary_topic.field.id:17`), 1950 to present — roughly **14.7 M records**.
+
+## The questions
 
 1. **The Takeover** — How has AI's share of CS research grown over time?
 2. **The Shelf Life** — Do AI papers age faster? (citation half-life by subfield)
-3. **The Winner's Game** — Is citation impact more concentrated in AI than other CS subfields? (Gini coefficient)
+3. **The Winner's Game** — Is citation impact more concentrated in AI than in other
+   CS subfields? (Gini coefficient)
 
-AI classification uses `primary_topic.subfield` from OpenAlex. Two variants are computed: `ai_strict` (Artificial Intelligence only) and `ai_broad` (+ Computer Vision and Pattern Recognition). See `DATA_MODEL.md` for details.
+AI is classified from a work's `primary_topic.subfield` and computed under two
+variants — `ai_strict` (Artificial Intelligence only) and `ai_broad` (+ Computer
+Vision and Pattern Recognition). All three questions are reported for both. See
+[`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## Pipeline
 
 ```
 OpenAlex API
-    └─ extraction (CLI, paginated cursor)
-         └─ JSONL page files  →  bronze ingestion (Polars)
-              └─ Parquet shards (per year)  →  GCS
-                   └─ BigQuery (external tables → native)
-                        └─ dbt (staging → silver → marts)
-                             └─ Streamlit dashboard
+   │  Python, API-rate-limited daily pull
+   ▼
+JSONL on local disk        ─ extraction
+   │  Polars, format conversion only
+   ▼
+Parquet on local disk      ─ bronze
+   │  upload, idempotent, Hive-partitioned path
+   ▼
+Parquet in GCS
+   │  BigQuery external table
+   ▼
+BigQuery raw → staging → silver → gold   ─ dbt
+   │  parse/flatten → AI classification → analytical aggregates
+   ▼
+Streamlit dashboard
 ```
 
-Orchestrated by **Dagster** (software-defined assets). Cloud infra via **Terraform**.
+**Dagster** orchestrates the DAG as software-defined assets; **Terraform** provisions
+the cloud infrastructure out of band.
 
-## Status
+## Key design choices
 
-| Stage | Status |
-|---|---|
-| Extraction | ✅ Done — `src/openalex_pipeline/extraction/`, tests in `tests/extraction/` |
-| Bronze ingestion | ✅ Done — `src/openalex_pipeline/bronze/`, tests in `tests/bronze/` |
-| dbt models (local / DuckDB) | 🔄 In progress |
-| GCS upload | 🔄 In progress (parallel to dbt local work) |
-| BigQuery + dbt silver | ⬜ Queued |
-| Dagster orchestration | ⬜ Queued |
-| Streamlit dashboard | ⬜ Queued |
+The decisions below are the ones a reviewer is most likely to want explained. Fuller
+rationale lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the per-layer design docs.
+
+- **Local extraction + bronze, cloud from GCS onward.** The pull is bounded by
+  OpenAlex's free-tier credits, not by compute — a laptop-shaped job that cloud would
+  only complicate. The warehouse work (GCS + BigQuery + dbt) is where the project's
+  weight deliberately sits. The boundary is a choice, not a cost workaround.
+
+- **Filesystem as source of truth.** Pipeline state lives on disk: a per-year report
+  signals extraction completion, the presence of `{year}.parquet` signals bronze. The
+  manifest is *derived* and rebuilt wholesale each run. No separate state store.
+
+- **Resumable extraction by construction, not by reconciliation.** The pull is a
+  multi-day, credit-limited job sharded one calendar year at a time. The cursor for
+  the *next* page is written before that page's file, and page writes always overwrite
+  by number — so a crash costs exactly one re-fetched page on resume, with no staleness
+  check or cleanup. Hitting the daily free-tier limit is a clean stop (typed, caught by
+  the runner), not an error; the next day's run picks up where it left off.
+
+- **Nested fields land as raw JSON strings in bronze.** The eight nested OpenAlex
+  fields are stored verbatim, not as Parquet structs. Inferring structs and encoding
+  them back fabricates explicit `null`s for keys a record never had; raw strings
+  preserve source fidelity. dbt staging parses them once, into a native table.
+
+- **`primary_topic` only for classification.** Simpler, avoids double-counting, and
+  more defensible than second-guessing OpenAlex via the full topics array — a work's
+  primary topic reflects its core contribution.
+
+- **Corruption is loud.** Malformed JSONL, null primary keys, query-mix across a
+  landing zone, and count mismatches all fail the affected unit immediately. Known
+  failure modes get typed exceptions; unknown failures propagate untouched. No silent
+  recovery.
+
+- **Transformation belongs in the warehouse.** dbt does no extraction and no file
+  movement — bronze Parquet (via the external table) is its input, silver and gold are
+  dbt models. The external table is a pointer-with-schema, so it is Terraform's, not
+  dbt's. There is no `silver/` or `gold/` Python package by design.
 
 ## Repository layout
 
 ```
 src/openalex_pipeline/
-    extraction/     # OpenAlex API → paginated JSONL (cursor-based)
-    bronze/         # JSONL → Parquet (schema enforcement, manifest)
-
-tests/
-    extraction/
-    bronze/
-
-dbt/                # staging → silver → marts (in progress)
-terraform/          # GCS bucket, BigQuery dataset, service accounts
+    extraction/     OpenAlex API → paginated JSONL (cursor-based, resumable)
+    bronze/         JSONL → Parquet (schema enforcement, manifest)
+    upload/         bronze Parquet → GCS (idempotent, Hive-partitioned)
+    orchestration/  Dagster definitions (later)
+dbt/                staging → silver → gold (in progress)
+terraform/          GCS bucket, BigQuery datasets, external table, IAM
+tests/              pytest for the Python modules
+docs/               per-layer design docs and reference material
 ```
 
-## Data layers
+## Running locally
 
-**Extract** — raw JSONL page files, one directory per year. Extraction is resumable; `_YEAR_REPORT.json` is the completion signal per year.
+Requires Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/). Configuration is via
+environment variables; see [`.env.example`](.env.example).
 
-**Bronze** — one Parquet file per year, explicit 21-column schema, nested fields as raw JSON strings. A `_MANIFEST.parquet` tracks counts, mismatch flags, and ingestion timestamps at year granularity. Bronze is a thin format conversion: no flattening, no deduplication, no per-record provenance columns.
-
-**Silver** (planned) — dbt staging models parse and flatten nested JSON fields; dbt silver models apply quality filters (`is_retracted`, `is_paratext`) and compute `is_ai` / `ai_strict` / `ai_broad` flags.
-
-**Marts** (planned) — pre-aggregated tables for the three analytical questions above, consumed by Streamlit.
-
-## Local development
+Each stage is a thin `python -m` module. Extraction is env-only; bronze and
+upload take the data root from `OPENALEX_DATA_ROOT` (or explicit `--*-root` flags).
 
 ```bash
-# Install (requires Python ≥ 3.11)
 uv sync
 
-# Extraction — configured via env vars (see env.example)
+# Extraction — env-configured (multi-day, rate-limited pull)
 uv run -m openalex_pipeline.extraction
 
-# Bronze ingestion — ingest all completed years under data-root
-uv run -m openalex_pipeline.bronze --data-root data/
-# or a specific range
-uv run -m openalex_pipeline.bronze --data-root data/ --start-year 2000 --end-year 2024
+# Bronze — convert completed extraction years to Parquet (all years by default)
+uv run -m openalex_pipeline.bronze
+# …or a specific inclusive range
+uv run -m openalex_pipeline.bronze --years 2000:2024
+
+# Upload — push bronze Parquet to GCS, Hive-partitioned for BigQuery
+uv run -m openalex_pipeline.upload --bucket "$OPENALEX_GCS_BUCKET"
 
 # Tests
-uv run pytest tests/
+uv run pytest
 ```
-
-Configuration is via environment variables; see `env.example` for available vars. Bronze additionally accepts `--start-year`, `--end-year`, and `--data-root` as CLI arguments (year range is optional; omitting it ingests all completed years found under `<data-root>/extract`). Extraction is env-only.
-
-## Key design decisions
-
-- **Primary topic only** for AI classification — avoids double-counting; rationale in `DATA_MODEL.md`.
-- **Nested fields as raw JSON strings in bronze** — schema stability across years; Polars `forced-String` on read preserves source fidelity (struct-encode rejected: it fabricates `null` keys absent from source).
-- **Completion signals on disk, not in a database** — `_YEAR_REPORT.json` for extraction, `{year}.parquet` presence for bronze; manifest is derived and rebuilt wholesale each run.
-- **Corruption is loud** — malformed JSONL, null primary keys, and scalar type mismatches all fail the affected year immediately; no silent recovery.
 
 ## Docs
 
-- [`SPECS.md`](SPECS.md) — analytical questions, pipeline shape, open questions
-- [`DATA_MODEL.md`](DATA_MODEL.md) — AI classification rules, bronze schema
-- [`docs/extraction-module-design.md`](docs/extraction-module-design.md) — extraction contracts and invariants
-- [`docs/ingestion-design.md`](docs/ingestion-design.md) — bronze ingestion contracts and invariants
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — project overview, layer contracts, boundaries
+- [`DATA_MODEL.md`](DATA_MODEL.md) — AI classification rules and the bronze schema
+- [`STATE.md`](STATE.md) — current state of the build
+- [`docs/`](docs/) — per-layer design docs
+</content>
+</invoke>
