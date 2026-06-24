@@ -17,3 +17,7 @@ output "analytics_dev_dataset" {
 output "bronze_external_table" {
   value = "${google_bigquery_dataset.raw.dataset_id}.${google_bigquery_table.bronze_external.table_id}"
 }
+
+output "dbt_service_account" {
+  value = google_service_account.dbt.email
+}

@@ -9,3 +9,9 @@ variable "region" {
   type        = string
   default     = "europe-west3"
 }
+
+variable "dbt_impersonator" {
+  description = "IAM principal allowed to impersonate the dbt service account (token creator), e.g. \"user:you@example.com\". The developer's ADC identity that runs dbt locally. Set in terraform.tfvars (gitignored); no default so a missing value fails loudly rather than granting the wrong identity."
+  type        = string
+  sensitive   = true
+}
