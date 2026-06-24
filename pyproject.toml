@@ -8,8 +8,10 @@ requires-python = ">=3.12"
 dependencies = [
     "dagster>=1.13.0",
     "dagster-webserver>=1.13.0",
+    "dbt-bigquery>=1.11.2",
+    "dbt-core>=1.11",
     "duckdb>=1.5.2",
-    "google-cloud-storage>=3.11.0",
+    "google-cloud-storage>=3.1.1",
     "loguru>=0.7.3",
     "orjson>=3.11.8",
     "polars>=1.39.3",
