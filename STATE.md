@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-06-21*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -53,14 +53,31 @@ stale state is worse than no state.
   (burst limit vs daily cap, empirically verified) documented in the
   connector/exceptions.
 
+- **dbt project init** (`docs/staging-design.md` §3) — implemented, **pending
+  review** (not yet committed; Nils commits after review). dbt added as a main
+  dep (`dbt-core`/`dbt-bigquery`, BigQuery adapter); `google-cloud-storage`
+  floor relaxed to `>=3.1.1` to clear dbt-bigquery's `<3.2` cap (resolves to
+  3.1.1, fine for the upload module). dbt identity: dedicated `dbt-runner` SA,
+  impersonated via the caller's ADC (mirrors the terraform-runner pattern) —
+  Terraform `iam.tf` adds the SA + least-privilege grants (project jobUser;
+  dataEditor on the two analytics datasets; dataViewer on raw; objectViewer on
+  the bronze bucket; tokenCreator for the developer's principal). **IAM
+  applied** via the `-out` flow. `/dbt/` skeleton: `dbt_project.yml` (staging
+  `+materialized: table`, corpus-bounds vars 1950–2026), `profiles.yml` (dev
+  default / prod opt-in, both EU, both threads 4, SA impersonation),
+  `models/staging/_sources.yml` (`bronze_external`). `DBT_PROFILES_DIR=dbt` in
+  `.env`/`.env.example`. `dbt parse` clean. The `dbt_impersonator` value lives
+  in a gitignored `terraform.tfvars`; the var has no default and is
+  `sensitive = true` (no personal email in tracked files or history).
+
 ## Next
 
-(Steps per `docs/staging-design.md` §6; 1–2 are done.)
+(Steps per `docs/staging-design.md` §6; 1–3 are done, pending review.)
 
-3. dbt project init against BigQuery: profiles (dev default / prod opt-in),
-   source declaration, corpus-bounds vars (`year_min`/`year_max`; dev uses a
-   mid-corpus decade slice like 1991–2000).
-4. Sanity-query the source through dbt; confirm pruning end-to-end.
+4. Connectivity gate + sanity-query (folded together): `dbt debug`, then run the
+   throwaway `models/staging/_smoke.sql` (one-decade source read) against dev to
+   exercise the fragile bucket grant + impersonation end-to-end; confirm
+   partition pruning via bytes-billed. Delete `_smoke.sql` after.
 5. dbt staging `stg_works`: parse the eight nested JSON-string columns, type
    dates, quality filters, dedup on `id` (≥1 known duplicate). Tests.
 6. Prod run + reconcile counts against the manifest.
