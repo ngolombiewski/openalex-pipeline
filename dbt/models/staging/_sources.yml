@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: >
+      Bronze Parquet in GCS, exposed as a BigQuery external table by Terraform
+      (terraform/bigquery.tf). Hive-partitioned on publication_year; the eight
+      nested OpenAlex fields are raw JSON strings, parsed downstream in staging.
+    database: "{{ env_var('OPENALEX_GCP_PROJECT') }}"
+    schema: openalex_raw
+    tables:
+      - name: bronze_external

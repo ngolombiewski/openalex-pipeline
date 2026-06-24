@@ -1,0 +1,25 @@
+# In-repo profile (non-default location). Found via DBT_PROFILES_DIR=dbt,
+# exported by direnv from .env. project comes from the same OPENALEX_GCP_PROJECT
+# env var dbt's sources.yml uses.
+#
+# Auth mirrors Terraform: oauth ADC impersonating a dedicated SA, no key file.
+# The caller's ADC must hold tokenCreator on dbt-runner (see terraform/iam.tf).
+openalex:
+  target: dev # safe default: a bare `dbt run` never touches prod
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      impersonate_service_account: dbt-runner@openalex-pipeline.iam.gserviceaccount.com
+      project: "{{ env_var('OPENALEX_GCP_PROJECT') }}"
+      dataset: openalex_analytics_dev
+      location: EU # must match the bucket + datasets
+      threads: 4
+    prod:
+      type: bigquery
+      method: oauth
+      impersonate_service_account: dbt-runner@openalex-pipeline.iam.gserviceaccount.com
+      project: "{{ env_var('OPENALEX_GCP_PROJECT') }}"
+      dataset: openalex_analytics
+      location: EU
+      threads: 4

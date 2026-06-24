@@ -1,0 +1,30 @@
+name: openalex
+version: "0.1.0"
+config-version: 2
+
+profile: openalex
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  openalex:
+    staging:
+      # Parse-once: staging is a native table, never a view over the external
+      # table. Inherited by every model under models/staging/.
+      +materialized: table
+
+vars:
+  # Corpus bounds — honest prod defaults (the real 1950–2026 corpus). Dev
+  # overrides to a mid-corpus decade slice for cheap iteration, e.g.
+  #   dbt run --vars '{year_min: 1991, year_max: 2000}'
+  year_min: 1950
+  year_max: 2026
