@@ -11,8 +11,10 @@ seed-paths: ["seeds"]
 snapshot-paths: ["snapshots"]
 
 target-path: target
+log-path: "dbt/logs"
 clean-targets:
   - target
+  - logs
   - dbt_packages
 
 models:
