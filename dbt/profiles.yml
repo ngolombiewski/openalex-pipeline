@@ -15,6 +15,10 @@ openalex:
       dataset: openalex_analytics_dev
       location: EU # must match the bucket + datasets
       threads: 4
+      # Per-job circuit breaker (not cumulative): ~100 GiB clears the full
+      # stg_works external scan (~45 GiB uncompressed) with margin, kills a
+      # runaway. Harmless on dev's far smaller decade jobs.
+      maximum_bytes_billed: 107374182400
     prod:
       type: bigquery
       method: oauth
@@ -23,3 +27,4 @@ openalex:
       dataset: openalex_analytics
       location: EU
       threads: 4
+      maximum_bytes_billed: 107374182400 # per-job; see dev target
