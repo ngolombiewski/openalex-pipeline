@@ -26,6 +26,17 @@ resource "google_bigquery_dataset" "analytics" {
 
   # Contents are dbt-rebuildable from the external table with one dbt run.
   delete_contents_on_destroy = true
+
+  # Compressed (physical) storage billing: BigQuery compresses the parsed
+  # native tables ~11.5x (measured on stg_works: 22.9 GiB logical -> 2.0 GiB
+  # physical), so physical billing keeps the analytics datasets under the 10 GiB
+  # free tier despite its 2x per-GiB rate. Trade-off: physical also bills
+  # time-travel + fail-safe bytes, and dbt's CREATE OR REPLACE leaves an old
+  # version behind on every rebuild — so cap time travel at the 48h minimum to
+  # bound rebuild churn (fail-safe is a fixed, non-configurable 7 days).
+  # Note: the billing model can only be changed once per 14 days per dataset.
+  storage_billing_model = "PHYSICAL"
+  max_time_travel_hours = 48
 }
 
 resource "google_bigquery_dataset" "analytics_dev" {
@@ -34,6 +45,12 @@ resource "google_bigquery_dataset" "analytics_dev" {
   description = "dbt dev target: same models over a year slice."
 
   delete_contents_on_destroy = true
+
+  # Physical storage billing — see openalex_analytics above. Especially apt here:
+  # dev churns through full rebuilds on the decade slice, and the 48h time-travel
+  # cap keeps that churn from accumulating physical bytes.
+  storage_billing_model = "PHYSICAL"
+  max_time_travel_hours = 48
 }
 
 # External table over the Hive-partitioned bronze Parquet in GCS.
