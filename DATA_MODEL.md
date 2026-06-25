@@ -7,8 +7,14 @@
 A work is flagged as AI (`is_ai = true`) if its `primary_topic.subfield.id`
 matches one of the following OpenAlex subfields:
 
-- `Artificial Intelligence`
-- `Computer Vision and Pattern Recognition` *(see ablation below)*
+- `Artificial Intelligence` — `https://openalex.org/subfields/1702`
+- `Computer Vision and Pattern Recognition` — `https://openalex.org/subfields/1707`
+  *(see ablation below)*
+
+Matching is on the subfield **id**, not the display name: the id is the stable
+upstream key, the name is a presentation string. The ids are pinned as
+`dbt_project.yml` vars (`subfield_ai`, `subfield_cv_pr`) and applied in the
+silver layer (`docs/silver-design.md`).
 
 Classification and all analytical groupings (subfield share, Gini, half-life)
 are derived from `primary_topic` only. The full `topics` array is retained in
@@ -27,13 +33,14 @@ CV/PR inclusion is a judgment call and is tested as an ablation.
 
 Two classification variants are defined:
 
-| Variant | Subfields included |
-|---|---|
-| `ai_strict` | Artificial Intelligence only |
-| `ai_broad` | Artificial Intelligence + Computer Vision and Pattern Recognition |
+| Variant | Subfields included | Subfield ids |
+|---|---|---|
+| `ai_strict` | Artificial Intelligence only | `1702` |
+| `ai_broad` | Artificial Intelligence + Computer Vision and Pattern Recognition | `1702`, `1707` |
 
 All analytical questions (Q1–Q3) are computed for both variants. Differences
-are reported.
+are reported. Measured against the full corpus, `ai_strict` is ≈27.5% and
+`ai_broad` ≈40.0% of CS works (sanity anchor, not a target).
 
 ---
 
