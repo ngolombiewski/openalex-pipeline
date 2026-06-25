@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-06-21*
+*Last updated: 2026-06-25*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -70,23 +70,64 @@ stale state is worse than no state.
   in a gitignored `terraform.tfvars`; the var has no default and is
   `sensitive = true` (no personal email in tracked files or history).
 
+- **dbt staging `stg_works` + connectivity gate** (`PLAN.md` steps 4–5) —
+  implemented, **pending review** (not committed). `dbt_utils` added
+  (`dbt/packages.yml`, v1.4.0; `package-lock.yml` committed). Step 4: `dbt debug`
+  green; smoke model ran against dev (exercised oauth→impersonation→external
+  read→bucket grant→write), then deleted. Step 5: `stg_works` (`models/staging/`)
+  parses all 8 JSON columns (flattened scalars + typed nested arrays for
+  `topics`/`counts_by_year`/`keywords`), SAFE-types the two dates, applies the
+  `is_retracted`/`is_paratext` + corpus-bounds filters, dedups on `id` via
+  `QUALIFY` (latest `updated_date`, `nulls last`). Config: `materialized=table`,
+  integer-range partition on `publication_year` (1950–2026), cluster on
+  `primary_topic_subfield_id`. Tests: `_staging.yml` (`id` not_null/unique,
+  `publication_year` not_null + `accepted_range`, `primary_topic_subfield_id`
+  not_null at **warn**) + two singular source date-parse tests. Verified on the
+  1991–2000 dev slice: 975,478 rows, **all 7 tests green**, **2.80 GiB billed**
+  (confirms partition pruning — a full unpruned scan bills 40+ GiB; the gap is
+  compression: GCS stores compressed Parquet ~10×, BigQuery bills uncompressed).
+  - *Known gap:* the two singular tests scan the `source` (not `ref`), so
+    `--select stg_works` does **not** include them; they run under a bare
+    `dbt build`/`dbt test`. Flagged for review — leave as-is or rewire to the
+    model graph.
+
+- **Prod run + reconcile** (`PLAN.md` step 6) — **done**, pending review. Added a
+  per-job `maximum_bytes_billed` cap (100 GiB) to **both** profile targets (not
+  cumulative — sized to clear the single biggest job, the full external scan; a
+  daily ceiling would be a GCP custom quota, not this). Full `dbt build -t prod`
+  (no selector, so the singular tests ran): `stg_works` = **14,723,333 rows**,
+  **43.2 GiB billed** (under cap), **all 8 nodes green**. Reconciliation against
+  the manifest **balances exactly**:
+  `14,775,131 (manifest) − 50,480 (is_retracted OR is_paratext = TRUE) − 1,282
+  (is_retracted NULL, intentionally dropped) − 36 (dedup) = 14,723,333`.
+  - *NULL quality flags (decided):* `is_retracted` is NULL for 6,025 works
+    (`is_paratext` never NULL); 1,282 of those are dropped **solely** by the
+    `= false` filter (NULL = false → excluded). Decision: **drop, made explicit**
+    — comment in `stg_works.sql` documents the conservative exclusion of
+    unrecorded-status works (~0.009%, scattered across years, not old-corpus).
+    No rebuild needed (behavior unchanged; comment-only edit).
+  - *Subfield test:* `primary_topic_subfield_id` had **0 nulls** across the full
+    corpus, but kept at **warn** (deliberate — defer the hard primary_topic-less
+    decision to the silver design, which must handle it regardless).
+
 ## Next
 
-(Steps per `docs/staging-design.md` §6; 1–3 are done, pending review.)
+(Steps per `PLAN.md`; staging steps 4–6 done, pending review. The whole dbt
+staging layer is now built on prod and reconciled.)
 
-4. Connectivity gate + sanity-query (folded together): `dbt debug`, then run the
-   throwaway `models/staging/_smoke.sql` (one-decade source read) against dev to
-   exercise the fragile bucket grant + impersonation end-to-end; confirm
-   partition pruning via bytes-billed. Delete `_smoke.sql` after.
-5. dbt staging `stg_works`: parse the eight nested JSON-string columns, type
-   dates, quality filters, dedup on `id` (≥1 known duplicate). Tests.
-6. Prod run + reconcile counts against the manifest.
 7. dbt silver: AI classification (`ai_strict` and `ai_broad` ablations),
-   field flattening for the analytical questions.
+   field flattening. **Design drafted** — `docs/silver-design.md`, pending
+   review. Resolves the staging §7 open questions: match on subfield **id**
+   (AI `1702`, CV/PR `1707`, pinned as `dbt_project.yml` vars `subfield_ai` /
+   `subfield_cv_pr`); two coalesced-boolean flags on the work row (`ai_strict ⊆
+   ai_broad`, tested); null-subfield → non-AI, kept in CS denominator (0 nulls
+   at full corpus anyway); `counts_by_year` stays nested, reshaped in gold.
+   Measured anchor: `ai_strict` ≈27.5%, `ai_broad` ≈40.0% of CS. `DATA_MODEL.md`
+   updated with the exact subfield ids + that matching is by id. Next: implement
+   `silver_works` per the doc.
 8. dbt gold: aggregates answering Q1/Q2/Q3 (subfield share, citation
-   half-life, Gini coefficient).
+   half-life, Gini coefficient). Needs its own design doc (half-life definition,
+   Gini formulation, the `counts_by_year` long reshape).
 9. Dagster orchestration: wire extraction, bronze, and dbt as
    software-defined assets.
 10. Streamlit dashboard.
-
-Silver (7) is the next step that needs a design doc before implementation.
