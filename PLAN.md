@@ -129,46 +129,38 @@ bronze manifest, accounting for known drops.*
 
 ## Step 7 — Silver: classification + flattening
 
-*Infra scaffold only here. **Methodology requires a design doc**
-(`docs/silver-design.md`) before implementation — STATE already calls silver the
-next step that needs one.*
+***Design doc written: `docs/silver-design.md` (pending review).** It resolves the
+open decisions below; the scaffold here is now just the build outline.*
 
-### Scaffold (mechanical — outline as-is)
+### Scaffold (per `docs/silver-design.md`)
 
-- **Layer config** in `dbt_project.yml`: add a `silver:` block mirroring
-  `staging:` (`+materialized: table`). Models live in `models/silver/`.
-- **`models/silver/_silver.yml`** for docs + tests; reuse `dbt_utils`
-  (`accepted_range` for bounded numeric outputs, `relationships` to assert
-  silver `id` ⊆ staging `id`, `expression_is_true` for the classification-flag
-  invariant `ai_strict ⊆ ai_broad`).
-- **Shape (proposed, confirm in design doc):** one wide works table
-  `silver_works`, one row per work, carrying the staging columns plus:
-  - `is_ai_strict`, `is_ai_broad` boolean flags (the ablation, as flags on the
-    row — *not* a long/exploded variant table; keeps Q1–Q3 a simple `GROUP BY`).
-  - flattened `subfield_id` / `subfield_display_name` / `field_*` lifted out of
-    the parsed `primary_topic`.
-  - Same partition (`publication_year`) + cluster (`subfield_id`) config as
-    staging.
-- **Possible second model:** a long `fct_citations_by_year` exploding
-  `counts_by_year` into one row per (work, year) — needed for half-life (Q2).
-  Whether it lives in silver or gold is an open decision (below).
-- **`ref('stg_works')`** is the only input. No new sources, no Terraform.
+- **Layer config** in `dbt_project.yml`: a `silver:` block mirroring `staging:`
+  (`+materialized: table`), plus the two pinned ablation vars `subfield_ai`
+  (`…/1702`) / `subfield_cv_pr` (`…/1707`). Models live in `models/silver/`.
+- **One model, `models/silver/silver_works.sql`** — one row per work,
+  `ref('stg_works')` as the only input. Derives `is_ai_strict` / `is_ai_broad`
+  (coalesced-boolean flags on the row, *not* an exploded variant table), and
+  projects the staging columns down to the analytical set (§3 of the doc;
+  `counts_by_year` carried nested). Same partition/cluster as staging.
+- **`models/silver/_silver.yml`** + one singular test, reusing `dbt_utils`
+  (`expression_is_true` for the `ai_strict ⊆ ai_broad` invariant and the two
+  classification-correctness assertions; singular row-count test that silver ==
+  staging — silver is a projection, never a filter).
+- No new sources, no Terraform.
 
-### Open decisions for the silver design doc (do NOT resolve mechanically)
+### Open decisions — now resolved in the design doc
 
-1. **`ai_strict` / `ai_broad` mechanics.** `DATA_MODEL.md` pins the *definition*
-   (strict = Artificial Intelligence subfield; broad = + Computer Vision and
-   Pattern Recognition). The doc must pin the *implementation*: the exact
-   subfield id(s) matched, matched against `primary_topic.subfield.id` only
-   (per DATA_MODEL, `topics` is retained but not used for classification).
-2. **primary_topic-less / NULL-subfield works** (staging-design §7). They can be
-   neither strict nor broad — but are they in the CS *denominator* for Q1's
-   share? This changes every Q1 number. Decide explicitly.
-3. **Where `counts_by_year` gets reshaped** (silver long fact vs. a gold-local
-   unnest). Affects how many native tables silver owns.
+1. **`ai_strict` / `ai_broad` mechanics** → match on subfield **id** (`1702`;
+   `1702`+`1707`), pinned as `dbt_project.yml` vars. *Resolved.*
+2. **primary_topic-less / NULL-subfield works** → moot in practice (0 nulls at
+   full corpus, guaranteed by the `field.id:17` extraction filter); defensive
+   default is non-AI + kept in the CS denominator. *Resolved.*
+3. **Where `counts_by_year` is reshaped** → stays nested in silver; the long
+   reshape + half-life methodology move to a **gold** intermediate (single
+   consumer). *Resolved here, executed in step 8.*
 
-**Done when:** `docs/silver-design.md` exists and is approved; `silver_works`
-(and any citations fact) builds + tests green on dev, then prod.
+**Done when:** `silver_works` builds + tests green on dev then prod; row count ==
+`stg_works`; strict/broad shares land near the ≈27.5% / ≈40% anchor.
 
 ---
 
