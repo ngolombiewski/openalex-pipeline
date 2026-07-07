@@ -127,10 +127,12 @@ bronze manifest, accounting for known drops.*
 
 ---
 
-## Step 7 — Silver: classification + flattening
+## Step 7 — Silver: classification + flattening ✅ DONE (prod, pending review)
 
-***Design doc written: `docs/silver-design.md` (pending review).** It resolves the
-open decisions below; the scaffold here is now just the build outline.*
+***Implemented per `docs/silver-design.md`.** `silver_works` built on prod:
+14,723,333 rows (== staging), all tests green, `ai_strict` 27.49% / `ai_broad`
+40.01% (on anchor), subset invariant holds in the data. The outline below is
+what was built.*
 
 ### Scaffold (per `docs/silver-design.md`)
 
@@ -166,11 +168,13 @@ open decisions below; the scaffold here is now just the build outline.*
 
 ## Step 8 — Gold: analytical aggregates (Q1/Q2/Q3)
 
-*Infra scaffold only. **Methodology requires a design doc**
-(`docs/gold-design.md`) — the three computations are non-trivial and are exactly
-the "nitty-gritty" to do carefully.*
+***Design doc written: `docs/gold-design.md` (pending review).** It specifies the
+three computations and surfaces five flagged methodology decisions. The key
+finding: `counts_by_year` is a fixed **2012–2026** window (verified), so Q2
+half-life is cohort-restricted (post-2012); the age confound forces a cohort on
+Q3 too. The outline below is superseded by the doc.*
 
-### Scaffold (mechanical — outline as-is)
+### Scaffold (per `docs/gold-design.md`)
 
 - **Layer config** in `dbt_project.yml`: `gold:` block, `+materialized: table`.
   Gold tables are tiny aggregates — no partitioning/clustering.
@@ -184,22 +188,19 @@ the "nitty-gritty" to do carefully.*
   guard against a silently-wrong aggregation.
 - Inputs are `ref('silver_works')` (+ the citations fact for Q2). No new infra.
 
-### Open decisions for the gold design doc (do NOT resolve mechanically)
+### Open decisions — now in the design doc (§6), to settle at review
 
-1. **Q1 denominator** — follows directly from silver decision #2 (are
-   NULL-subfield CS works in the denominator?).
-2. **Q2 half-life definition** — the genuinely hard one. What does "half" mean
-   (cumulative citations reaching 50% of *some* total — lifetime-to-date? a
-   fixed window?), how is the crossing year interpolated, and how are works with
-   sparse/short `counts_by_year` handled? Methodology decision with real
-   analytical consequences.
-3. **Q3 Gini computation in BigQuery SQL** — the window-function formulation
-   (sorted cumulative-share approach), the unit of analysis (per subfield per
-   variant), and treatment of zero-citation works.
+1. **Q1 denominator** → resolved in silver: all `silver_works` are CS, 0 null
+   subfields. Denominator = all works in the year. *Resolved.*
+2. **Q2 half-life** → defined (cumulative-to-50% citation age) + cohort-restricted
+   to 2012–2016 (forced by the `counts_by_year` window). Open: exact cohort
+   bounds, interpolation. *Flagged in doc §6.*
+3. **Q3 Gini** → SQL formula pinned; cohort-controlled; zeros included. Open:
+   cohort choice, optional cited-only secondary. *Flagged in doc §6.*
 
-**Done when:** both design docs approved; all three gold tables build + test
-green on dev then prod; numbers sanity-checked against expectations before they
-reach the dashboard.
+**Done when:** the doc's flagged decisions are settled; all three gold tables
+build + test green on dev (2012–2016 slice — *not* the 1991–2000 staging slice)
+then prod; headline AI-vs-rest comparisons sanity-checked before the dashboard.
 
 ---
 
