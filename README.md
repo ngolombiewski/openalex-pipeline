@@ -92,7 +92,9 @@ Streamlit dashboard (next)
 
 **Terraform** provisions the cloud infrastructure (GCS bucket, BigQuery
 datasets, external table, service accounts + least-privilege IAM) out of band;
-**Dagster** will orchestrate the DAG as software-defined assets (next).
+**Dagster** (next) will model every layer as a software-defined asset for
+end-to-end lineage, with automation scoped to the cloud side — the local,
+credit-limited pull stays a manually materialized asset.
 
 ## The warehouse
 

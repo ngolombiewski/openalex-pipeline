@@ -52,8 +52,10 @@ BigQuery gold                ── analytical aggregates, Q1/Q2/Q3
 Streamlit dashboard
 ```
 
-Dagster orchestrates the whole DAG as software-defined assets. Terraform
-provisions cloud infrastructure out of band.
+Dagster models the whole DAG as software-defined assets, but automation
+(schedules, sensors, retries) is scoped to the cloud side only; local assets
+are materialized manually. Terraform provisions cloud infrastructure out of
+band.
 
 ### Layer contracts
 
@@ -112,9 +114,12 @@ further. It never uploads to GCS.
 - **dbt** does transformation *inside the warehouse*: bronze Parquet (via
   BigQuery external tables) is its input; silver and gold are dbt models.
   dbt does no extraction and no file movement.
-- **Dagster** is the orchestrator. Extraction, bronze, and upload become
-  Dagster assets; dbt models become Dagster assets via `dagster-dbt`. Dagster
-  owns the DAG, the schedule, and retries.
+- **Dagster** is the orchestrator. Every layer is a software-defined asset —
+  extraction, bronze, and upload directly, dbt models via `dagster-dbt` — so
+  lineage is visible end to end. Automation stops at the local/cloud boundary:
+  schedules and retries apply to the cloud assets only; the local,
+  credit-limited pull is materialized manually (it is a laptop-shaped job, and
+  assets ≠ schedules).
 
 ## Repository Layout
 

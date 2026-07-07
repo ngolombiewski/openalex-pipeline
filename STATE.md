@@ -175,6 +175,9 @@ stale state is worse than no state.
 (Steps per `PLAN.md`; staging/silver committed; gold done on prod, pending
 review + commit.)
 
-9. Dagster orchestration: wire extraction, bronze, and dbt as
-   software-defined assets.
+9. Dagster orchestration — **scope decided (2026-07-07):** full asset graph
+   (extraction/bronze/upload directly, dbt via `dagster-dbt`) for end-to-end
+   lineage, but schedules/sensors/retries automate the **cloud side only**;
+   local assets are materialized manually. ARCHITECTURE.md updated to match
+   (it previously claimed Dagster owns the schedule for everything).
 10. Streamlit dashboard.
