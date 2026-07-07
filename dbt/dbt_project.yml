@@ -25,6 +25,10 @@ models:
     silver:
       # Classified + projected works. Static, rebuildable corpus -> table.
       +materialized: table
+    gold:
+      # Question-shaped aggregates (Q1-Q3). Tiny outputs -> table, no
+      # partitioning/clustering.
+      +materialized: table
 
 vars:
   # Corpus bounds — honest prod defaults (the real 1950–2026 corpus). Dev
@@ -38,3 +42,12 @@ vars:
   # subfield id, not display name. ai_strict = AI; ai_broad = AI + CV/PR.
   subfield_ai: "https://openalex.org/subfields/1702"    # Artificial Intelligence
   subfield_cv_pr: "https://openalex.org/subfields/1707" # Computer Vision and Pattern Recognition
+
+  # Q2/Q3 publication cohort (docs/gold-design.md §1). counts_by_year only
+  # covers 2012+, so half-life — and the age-controlled Gini, for symmetry —
+  # are computed over this cohort. Same bounds as the canonical dev slice.
+  half_life_cohort_min: 2012
+  half_life_cohort_max: 2016
+
+  # 2026 extraction is in-flight; Q1 flags the year so the dashboard can dim it.
+  partial_year: 2026
