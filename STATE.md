@@ -110,24 +110,38 @@ stale state is worse than no state.
     corpus, but kept at **warn** (deliberate — defer the hard primary_topic-less
     decision to the silver design, which must handle it regardless).
 
+- **dbt silver `silver_works`** (`PLAN.md` step 7, `docs/silver-design.md`) —
+  designed, implemented, built on prod, **pending review**. One model, one row
+  per work (`ref('stg_works')`, no filter): adds `is_ai_strict` / `is_ai_broad`
+  (coalesced-boolean, matched on the pinned `subfield_ai` `1702` / `subfield_cv_pr`
+  `1707` vars) and projects staging to the analytical columns; `counts_by_year`
+  carried nested for gold's half-life. Config mirrors staging (`table`, int-range
+  partition on `publication_year`, cluster on subfield). Tests (`_silver.yml` +
+  singular): `id` not_null/unique, flags not_null, the `ai_strict ⊆ ai_broad`
+  subset invariant, two classification-correctness assertions, and a singular
+  row-count test (silver == staging). **Prod: all green**, 14,723,333 rows
+  (== staging), `ai_strict` **27.49%** (4,047,312) / `ai_broad` **40.01%**
+  (5,891,425) — on the anchor; `strict_not_broad = 0` in the data. `DATA_MODEL.md`
+  carries the exact subfield ids.
+  - *Log path fixed:* the deprecated `log-path` in `dbt_project.yml` (added to
+    stop dbt dropping `logs/` at the repo root — the log path is CWD-relative,
+    not `--project-dir`-relative) is replaced by `DBT_LOG_PATH=dbt/logs` in
+    `.env`/`.env.example`. Deprecation gone; logs land in `dbt/logs/`.
+
 ## Next
 
-(Steps per `PLAN.md`; staging steps 4–6 done, pending review. The whole dbt
-staging layer is now built on prod and reconciled.)
+(Steps per `PLAN.md`; staging 4–6 and silver 7 done on prod, pending review.)
 
-7. dbt silver: AI classification (`ai_strict` and `ai_broad` ablations),
-   field flattening. **Design drafted** — `docs/silver-design.md`, pending
-   review. Resolves the staging §7 open questions: match on subfield **id**
-   (AI `1702`, CV/PR `1707`, pinned as `dbt_project.yml` vars `subfield_ai` /
-   `subfield_cv_pr`); two coalesced-boolean flags on the work row (`ai_strict ⊆
-   ai_broad`, tested); null-subfield → non-AI, kept in CS denominator (0 nulls
-   at full corpus anyway); `counts_by_year` stays nested, reshaped in gold.
-   Measured anchor: `ai_strict` ≈27.5%, `ai_broad` ≈40.0% of CS. `DATA_MODEL.md`
-   updated with the exact subfield ids + that matching is by id. Next: implement
-   `silver_works` per the doc.
 8. dbt gold: aggregates answering Q1/Q2/Q3 (subfield share, citation
-   half-life, Gini coefficient). Needs its own design doc (half-life definition,
-   Gini formulation, the `counts_by_year` long reshape).
+   half-life, Gini coefficient). **Design drafted** — `docs/gold-design.md`,
+   pending review. Key finding driving Q2: `counts_by_year` is a fixed
+   **2012–2026** window (verified, identical across all cohorts), so
+   half-life-from-publication only computes for a **post-2012 cohort**
+   (recommended 2012–2016). Age-confound likewise forces a cohort control on Q3
+   (Gini). Five flagged methodology decisions for review (cohort bounds,
+   interpolation, zero-citation handling, partial-2026) — none block the
+   scaffold. Q1 is confound-free (within-year ratio). Next: settle the flagged
+   decisions, then implement.
 9. Dagster orchestration: wire extraction, bronze, and dbt as
    software-defined assets.
 10. Streamlit dashboard.
