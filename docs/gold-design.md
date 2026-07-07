@@ -52,7 +52,7 @@ gold_ai_share_by_year(publication_year, variant, cs_works, ai_works, share)
 
 **Notes / minor decisions:**
 
-- **2026 is partial** (extraction in-flight). The _share_ is still meaningful, but flag the year as partial (a `is_partial_year` boolean or just document it) so the dashboard can dim it.
+- **2026 is partial** (extraction in-flight). The _share_ is still meaningful, but flag the year visiblty as partial in the dashboard.
 - Early years (1950s–60s) have tiny `cs_works` and so noisy shares. Keep them (the corpus bounds are deliberate); the dashboard can handle the noise. No minimum-count filter in gold.
 
 ---
