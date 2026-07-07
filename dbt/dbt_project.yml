@@ -28,8 +28,9 @@ models:
 
 vars:
   # Corpus bounds — honest prod defaults (the real 1950–2026 corpus). Dev
-  # overrides to a mid-corpus decade slice for cheap iteration, e.g.
-  #   dbt run --vars '{year_min: 1991, year_max: 2000}'
+  # overrides to the canonical dev slice — the Q2/Q3 analytical cohort, so dev
+  # gold tables preview prod numbers (counts_by_year only covers 2012+):
+  #   dbt run --vars '{year_min: 2012, year_max: 2016}'
   year_min: 1950
   year_max: 2026
 
