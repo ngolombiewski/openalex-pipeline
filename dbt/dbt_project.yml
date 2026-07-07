@@ -11,7 +11,6 @@ seed-paths: ["seeds"]
 snapshot-paths: ["snapshots"]
 
 target-path: target
-log-path: "dbt/logs"
 clean-targets:
   - target
   - logs
@@ -23,6 +22,9 @@ models:
       # Parse-once: staging is a native table, never a view over the external
       # table. Inherited by every model under models/staging/.
       +materialized: table
+    silver:
+      # Classified + projected works. Static, rebuildable corpus -> table.
+      +materialized: table
 
 vars:
   # Corpus bounds — honest prod defaults (the real 1950–2026 corpus). Dev
@@ -30,3 +32,8 @@ vars:
   #   dbt run --vars '{year_min: 1991, year_max: 2000}'
   year_min: 1950
   year_max: 2026
+
+  # AI classification subfields (DATA_MODEL.md). Pinned by stable OpenAlex
+  # subfield id, not display name. ai_strict = AI; ai_broad = AI + CV/PR.
+  subfield_ai: "https://openalex.org/subfields/1702"    # Artificial Intelligence
+  subfield_cv_pr: "https://openalex.org/subfields/1707" # Computer Vision and Pattern Recognition

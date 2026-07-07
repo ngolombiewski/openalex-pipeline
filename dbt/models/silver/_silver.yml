@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: silver_works
+    description: >
+      Classified, analysis-shaped works — one row per OpenAlex work id (same
+      grain as stg_works, no filter). Adds the ai_strict/ai_broad ablation flags
+      (matched on the pinned subfield ids) and projects staging down to the
+      columns Q1–Q3 consume; counts_by_year is carried nested for the gold
+      half-life reshape. See docs/silver-design.md.
+    columns:
+      - name: id
+        description: OpenAlex work ID, primary key. Unique, inherited from staging.
+        tests:
+          - not_null
+          - unique
+      - name: is_ai_strict
+        description: Primary-topic subfield is Artificial Intelligence (id 1702).
+        tests:
+          - not_null
+      - name: is_ai_broad
+        description: >
+          Primary-topic subfield is AI (1702) or Computer Vision and Pattern
+          Recognition (1707). Superset of is_ai_strict.
+        tests:
+          - not_null
+    # Model-level invariants (dbt_utils.expression_is_true).
+    tests:
+      # Ablation is a subset relation: every strict-AI work is broad-AI.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "is_ai_broad or not is_ai_strict"
+      # Classification correctness: the flags agree with the subfield id.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              is_ai_strict = (primary_topic_subfield_id = '{{ var("subfield_ai") }}')
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              is_ai_broad = (primary_topic_subfield_id in
+                ('{{ var("subfield_ai") }}', '{{ var("subfield_cv_pr") }}'))
