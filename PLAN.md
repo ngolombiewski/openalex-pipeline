@@ -35,9 +35,13 @@ These are settled; they are not re-litigated per step.
   silver works table get integer-range partitioning on `publication_year` and
   clustering on the subfield id (see step 5 for the exact config). Gold
   aggregates are tiny — no partitioning.
-- **Dev = decade slice, prod = full corpus**, via the existing
-  `year_min`/`year_max` vars. Iterate on `--vars '{year_min: 1991, year_max:
-  2000}'`; promote with `-t prod`.
+- **Dev = the 2012–2016 cohort slice, prod = full corpus**, via the existing
+  `year_min`/`year_max` vars. Iterate on `--vars '{year_min: 2012, year_max:
+  2016}'`; promote with `-t prod`. (Originally a 1991–2000 decade slice — steps
+  4–6 ran on that — but retired: `counts_by_year` only covers 2012+, so a
+  pre-2012 slice is useless for gold. The dev slice now equals the Q2/Q3
+  analytical cohort, one canonical slice for all layers; 2.7 M rows, ~18% of
+  corpus, ~8 GiB per staging rebuild.)
 
 ---
 
@@ -199,7 +203,7 @@ Q3 too. The outline below is superseded by the doc.*
    cohort choice, optional cited-only secondary. *Flagged in doc §6.*
 
 **Done when:** the doc's flagged decisions are settled; all three gold tables
-build + test green on dev (2012–2016 slice — *not* the 1991–2000 staging slice)
+build + test green on dev (the canonical 2012–2016 slice)
 then prod; headline AI-vs-rest comparisons sanity-checked before the dashboard.
 
 ---
