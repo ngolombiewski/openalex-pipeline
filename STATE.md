@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-06-25*
+*Last updated: 2026-07-07*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -128,20 +128,53 @@ stale state is worse than no state.
     not `--project-dir`-relative) is replaced by `DBT_LOG_PATH=dbt/logs` in
     `.env`/`.env.example`. Deprecation gone; logs land in `dbt/logs/`.
 
+- **Dev slice moved to 2012–2016** (was 1991–2000). The old decade slice
+  predates the `counts_by_year` finding and is useless for gold (no citation
+  data before 2012). The canonical dev slice now equals the Q2/Q3 analytical
+  cohort — one slice for all layers, dev gold previews prod numbers. 2.68 M
+  rows (18.1% of corpus, per the bronze manifest), ~8 GiB per full dev rebuild
+  (extrapolated from the measured 2.80 GiB / 978 k-row staging anchor).
+  Convention updated in `dbt_project.yml` + `PLAN.md`; dev dataset rebuilt on
+  the new slice (full `dbt build`, 47/47 green).
+
+- **dbt gold** (`PLAN.md` step 8, `docs/gold-design.md` — **design approved**,
+  §6 decisions: 1–4 as recommended, 5 = flag column kept) — implemented, built
+  on dev **and prod**, **pending review** (not committed). Four models in
+  `models/gold/` (`+materialized: table`, no partitioning — tiny outputs):
+  `gold_ai_share_by_year` (Q1; long over strict/broad, `is_partial_year` on
+  2026 via `partial_year` var), `int_paper_half_life` (view; per-cited-paper
+  cumulative-to-50% half-life, linear interpolation, `age < 0` dropped,
+  first-observation crossing snaps), `gold_citation_half_life_by_subfield`
+  (Q2; exact `percentile_cont` p25/median/p75 + `n_cited`/`uncited_rate`
+  context), `gold_citation_gini_by_subfield` (Q3; single-window-pass Gini,
+  zeros included, `nullif` guard). Q2/Q3 cohort = vars
+  `half_life_cohort_min/max` (2012–2016). Tests: `_gold.yml` (uniqueness,
+  bounds: share/gini/uncited_rate ∈ [0,1], half-life > 0, n_cited ≤ n_papers,
+  ai_works ≤ cs_works, variant accepted_values) + two singular
+  (strict-share ≤ broad-share per year; AI subfield present in both
+  subfield-grain tables). **Prod: 30/30 green.** Sanity (unweighted subfield-
+  median averages, AI vs rest): Gini 0.898 vs 0.874 (strict) — AI slightly
+  more concentrated; half-life ≈ 3.5 vs 3.5 — no aging gap at first glance.
+  Q1 share is **not monotone**: ~30% strict in 1980, dip to ~23% in 2012,
+  rise to ~40% in 2026 (partial) — consistent with the AI-winters narrative
+  (Nils), worth a dashboard note. Strict ≤ broad holds everywhere; 2026
+  flagged partial.
+  - *`gini_cited_only` secondary added* (design §4c option, requested at
+    review): same formula over cited papers only, plus the
+    `gini_cited_only <= gini` invariant test (adding zeros can only raise
+    concentration). **Finding: the two ginis rank subfields differently.**
+    All-papers leader Information Systems (0.929, but 71% uncited) drops to
+    mid-pack cited-only (0.761), while **AI (0.797) and CV/PR (0.823) are the
+    top two cited-only ginis** — with *below-average* uncited rates (50%/40%).
+    The Winner's-Game story sharpens: AI's concentration is among papers that
+    do get cited, not an artifact of uncited mass. Rebuilt dev + prod, 9/9
+    green each.
+
 ## Next
 
-(Steps per `PLAN.md`; staging 4–6 and silver 7 done on prod, pending review.)
+(Steps per `PLAN.md`; staging/silver committed; gold done on prod, pending
+review + commit.)
 
-8. dbt gold: aggregates answering Q1/Q2/Q3 (subfield share, citation
-   half-life, Gini coefficient). **Design drafted** — `docs/gold-design.md`,
-   pending review. Key finding driving Q2: `counts_by_year` is a fixed
-   **2012–2026** window (verified, identical across all cohorts), so
-   half-life-from-publication only computes for a **post-2012 cohort**
-   (recommended 2012–2016). Age-confound likewise forces a cohort control on Q3
-   (Gini). Five flagged methodology decisions for review (cohort bounds,
-   interpolation, zero-citation handling, partial-2026) — none block the
-   scaffold. Q1 is confound-free (within-year ratio). Next: settle the flagged
-   decisions, then implement.
 9. Dagster orchestration: wire extraction, bronze, and dbt as
    software-defined assets.
 10. Streamlit dashboard.

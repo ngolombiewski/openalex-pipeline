@@ -170,13 +170,12 @@ what was built.*
 
 ---
 
-## Step 8 — Gold: analytical aggregates (Q1/Q2/Q3)
+## Step 8 — Gold: analytical aggregates (Q1/Q2/Q3) ✅ DONE (prod, pending review)
 
-***Design doc written: `docs/gold-design.md` (pending review).** It specifies the
-three computations and surfaces five flagged methodology decisions. The key
-finding: `counts_by_year` is a fixed **2012–2026** window (verified), so Q2
-half-life is cohort-restricted (post-2012); the age confound forces a cohort on
-Q3 too. The outline below is superseded by the doc.*
+***Implemented per `docs/gold-design.md`** (design approved; §6 decisions 1–4 as
+recommended, 5 = keep the `is_partial_year` flag column). All four models built
+and tested green on dev (2012–2016 slice) and prod. The outline below is
+superseded by the doc.*
 
 ### Scaffold (per `docs/gold-design.md`)
 
