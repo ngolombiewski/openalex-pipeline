@@ -36,3 +36,12 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+
+[tool.dagster]
+module_name = "openalex_pipeline.orchestration.definitions"
+code_location_name = "openalex_pipeline"
