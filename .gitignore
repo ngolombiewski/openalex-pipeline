@@ -19,6 +19,9 @@ logs/
 dbt/logs/
 dbt/target/
 
+# Dagster advisory instance state
+.dagster/
+
 # AI agents
 .agents/
 .codex/
