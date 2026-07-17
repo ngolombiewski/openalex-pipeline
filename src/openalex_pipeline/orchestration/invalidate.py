@@ -149,7 +149,7 @@ def pending_invalidation_years(
             raise TombstoneCorruption(
                 f"invalid invalidation tombstone {marker.name!r}: year is not an integer"
             ) from exc
-        if suffix != str(year) or not marker.is_file():
+        if suffix != str(year) or marker.is_symlink() or not marker.is_file():
             raise TombstoneCorruption(
                 f"invalid invalidation tombstone {marker.name!r}: "
                 "expected a canonical regular marker file"

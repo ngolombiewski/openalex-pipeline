@@ -172,6 +172,25 @@ def test_executor_rejects_malformed_or_out_of_bounds_tombstone(
         resume_pending_invalidations(extract_root, tmp_path / "bronze", [2026])
 
 
+def test_executor_rejects_symlink_tombstone_before_deleting(tmp_path: Path) -> None:
+    extract_root = tmp_path / "extract"
+    bronze_root = tmp_path / "bronze"
+    year_dir = extract_root / "2026"
+    parquet = bronze_root / "2026.parquet"
+    year_dir.mkdir(parents=True)
+    parquet.parent.mkdir()
+    parquet.write_bytes(b"parquet")
+    target = tmp_path / "marker-target"
+    target.touch()
+    (extract_root / "_INVALIDATING_2026").symlink_to(target)
+
+    with pytest.raises(TombstoneCorruption, match="regular marker file"):
+        resume_pending_invalidations(extract_root, bronze_root, [2026])
+
+    assert year_dir.exists()
+    assert parquet.exists()
+
+
 def test_layer_discovery_ignores_tombstones(tmp_path: Path) -> None:
     extract_root = tmp_path / "extract"
     bronze_root = tmp_path / "bronze"

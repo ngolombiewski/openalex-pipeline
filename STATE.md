@@ -175,8 +175,8 @@ stale state is worse than no state.
 (Steps per `PLAN.md`; staging/silver committed; gold done on prod, pending
 review + commit.)
 
-9. Dagster orchestration — **designed, implemented, and review-round-2 fixes
-   applied (2026-07-17); ready for the next review cycle.** Supersedes the
+9. Dagster orchestration — **designed, implemented, and review-round-3 fixes
+   applied (2026-07-17); ready for Nils's review.** Supersedes the
    2026-07-07 scope note: full asset graph (unpartitioned wrappers over the
    existing runners + `dagster-dbt`, Dagster log advisory-only), a **daily
    `local_sweep`** (bootstrap and refresh are the same converging job), a
@@ -204,8 +204,10 @@ review + commit.)
    existence and table-freshness contracts; import-time serialized prod dbt
    manifest preparation that works from a clean checkout; all automations
    default RUNNING; and honest per-run asset metadata with wrapper/sensor/lock
-   coverage. Bare Dagster launch is pinned through `[tool.dagster]`.
-   Verification: full pytest **217 passed**, repo-wide Ruff lint clean, touched
+   coverage. Bare Dagster launch is pinned through `[tool.dagster]`. Review
+   round 3 closed one remaining tombstone-validation hole: symlinks are now
+   rejected as corruption before they can authorize deletion.
+   Verification: full pytest **218 passed**, repo-wide Ruff lint clean, touched
    paths Ruff-format and Pyright clean, clean-checkout subprocess green,
    `dagster definitions validate` green, real instance config shows retries
    enabled, and a production smoke loaded the end-to-end code location and
