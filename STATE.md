@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-07-07*
+*Last updated: 2026-07-15*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -175,9 +175,26 @@ stale state is worse than no state.
 (Steps per `PLAN.md`; staging/silver committed; gold done on prod, pending
 review + commit.)
 
-9. Dagster orchestration — **scope decided (2026-07-07):** full asset graph
-   (extraction/bronze/upload directly, dbt via `dagster-dbt`) for end-to-end
-   lineage, but schedules/sensors/retries automate the **cloud side only**;
-   local assets are materialized manually. ARCHITECTURE.md updated to match
-   (it previously claimed Dagster owns the schedule for everything).
+9. Dagster orchestration — **designed and implemented (2026-07-09),
+   pending review.** Supersedes the
+   2026-07-07 scope note: full asset graph (unpartitioned wrappers over the
+   existing runners + `dagster-dbt`, Dagster log advisory-only), a **daily
+   `local_sweep`** (bootstrap and refresh are the same converging job), a
+   **monthly invalidation** of the current year (new guarded
+   `invalidate_year` capability — the only module-contract change), and a
+   **staleness sensor** gating the prod dbt rebuild on
+   converged-∧-warehouse-stale, derived purely from FS/GCS/BQ metadata.
+   Automation boundary revised: manual full backfill, automated refresh
+   (`ARCHITECTURE.md`, `README.md`, `.env.example` updated). Review round 1
+   (2026-07-09) applied: staleness
+   predicate hardened to min-last_modified over **all** dbt-managed tables
+   (single-sentinel `stg_works` flips not-stale after a partial build);
+   convergence pinned to `classify_year` + `canonical_query` (adds query-
+   homogeneity assertion). Same review logged a **gold known gap**
+   (`docs/gold-design.md` §9): pooled AI-vs-rest is not derivable from the
+   subfield-grain gold tables (medians/Ginis don't compose) — deferred to the
+   Q2/Q3 revisit; dashboard must stay subfield-comparison-only until then.
+   Implementation added `src/openalex_pipeline/orchestration/` with
+   filesystem/GCS/BQ predicates, guarded `invalidate_year`, Dagster assets,
+   jobs, schedules, and sensor; tests in `tests/orchestration/`.
 10. Streamlit dashboard.

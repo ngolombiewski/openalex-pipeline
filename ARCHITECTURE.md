@@ -52,10 +52,11 @@ BigQuery gold                ── analytical aggregates, Q1/Q2/Q3
 Streamlit dashboard
 ```
 
-Dagster models the whole DAG as software-defined assets, but automation
-(schedules, sensors, retries) is scoped to the cloud side only; local assets
-are materialized manually. Terraform provisions cloud infrastructure out of
-band.
+Dagster models the whole DAG as software-defined assets. The full historical
+backfill remains manual, while the bounded current-year refresh is automated:
+a daily local sweep, monthly invalidation of the current year, and a staleness
+sensor that rebuilds the warehouse after GCS has converged. Terraform
+provisions cloud infrastructure out of band.
 
 ### Layer contracts
 
@@ -116,10 +117,9 @@ further. It never uploads to GCS.
   dbt does no extraction and no file movement.
 - **Dagster** is the orchestrator. Every layer is a software-defined asset —
   extraction, bronze, and upload directly, dbt models via `dagster-dbt` — so
-  lineage is visible end to end. Automation stops at the local/cloud boundary:
-  schedules and retries apply to the cloud assets only; the local,
-  credit-limited pull is materialized manually (it is a laptop-shaped job, and
-  assets ≠ schedules).
+  lineage is visible end to end. The expensive full historical pull stays a
+  manual decision; the cheap, bounded current-year refresh is automated by the
+  daily sweep + monthly invalidation + warehouse staleness sensor.
 
 ## Repository Layout
 
@@ -131,7 +131,7 @@ further. It never uploads to GCS.
     extraction/         Python module — OpenAlex API → local JSONL
     bronze/             Python module — JSONL → Parquet
     upload/             Python module — bronze Parquet → GCS
-    orchestration/      Dagster definitions (later)
+    orchestration/      Dagster definitions, jobs, schedules, sensors
 /dbt/                   self-contained dbt project
     dbt_project.yml
     profiles.yml        BigQuery target(s); dev = small dataset, prod = full
@@ -157,7 +157,6 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
 - **Upload** — Python module at `src/openalex_pipeline/upload/`. Design:
   `docs/design-archive/upload-design.md`.
 - **dbt staging** — `dbt/models/staging/`. Design: `docs/staging-design.md`.
-- **dbt silver / gold** — `dbt/models/`. Design docs to follow as these
-  layers are built.
-- **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster). To
-  follow.
+- **dbt silver / gold** — `dbt/models/`. Designs: `docs/silver-design.md` and
+  `docs/gold-design.md`.
+- **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
