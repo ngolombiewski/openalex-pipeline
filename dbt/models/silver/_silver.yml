@@ -7,7 +7,7 @@ models:
       grain as stg_works, no filter). Adds the ai_strict/ai_broad ablation flags
       (matched on the pinned subfield ids) and projects staging down to the
       columns Q1–Q3 consume; counts_by_year is carried nested for the gold
-      half-life reshape. See docs/silver-design.md.
+      half-life reshape. See docs/design-archive/silver-design.md.
     columns:
       - name: id
         description: OpenAlex work ID, primary key. Unique, inherited from staging.

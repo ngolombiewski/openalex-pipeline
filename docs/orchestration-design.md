@@ -1,8 +1,7 @@
 # Orchestration design — Dagster
 
-*Status: implemented, pending review. Supersedes the scope note in STATE.md
-step 9 and revises the automation boundary recorded in ARCHITECTURE.md
-(2026-07-07).*
+*Status: implemented, reviewed, and approved. Supersedes the 2026-07-07 scope
+note and records the active orchestration contract.*
 
 ## 1. Purpose and honest scope
 

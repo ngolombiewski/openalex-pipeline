@@ -1,5 +1,5 @@
 # BigQuery surface: three datasets + the bronze external table.
-# Design: docs/staging-design.md §1–§2.
+# Design: docs/design-archive/staging-design.md §1–§2.
 
 # Dataset locations must match the bucket's EU multi-region, or external
 # queries fail. Independent of var.region (europe-west3), which BigQuery

@@ -1,6 +1,7 @@
 {{ config(materialized='view') }}
 
--- Per-paper citation half-life over the Q2/Q3 cohort (docs/gold-design.md §3).
+-- Per-paper citation half-life over the Q2/Q3 cohort
+-- (docs/design-archive/gold-design.md §3).
 -- One row per *cited* cohort paper. Zero-citation papers have no half-life and
 -- carry no row here; the gold model reports them via uncited_rate. Materialized
 -- as a view: single consumer, but queryable for debugging.

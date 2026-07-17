@@ -13,7 +13,8 @@
 -- Staging over the bronze works external table. Does exactly four things and
 -- nothing else: parse the eight JSON-string columns, type the two date columns,
 -- apply the corpus-hygiene filters, and deduplicate on `id`. No classification
--- (that is silver), no aggregation (that is gold). See docs/staging-design.md §4.
+-- (that is silver), no aggregation (that is gold).
+-- See docs/design-archive/staging-design.md §4.
 
 with source as (
 

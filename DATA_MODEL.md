@@ -14,7 +14,7 @@ matches one of the following OpenAlex subfields:
 Matching is on the subfield **id**, not the display name: the id is the stable
 upstream key, the name is a presentation string. The ids are pinned as
 `dbt_project.yml` vars (`subfield_ai`, `subfield_cv_pr`) and applied in the
-silver layer (`docs/silver-design.md`).
+silver layer (`docs/design-archive/silver-design.md`).
 
 Classification and all analytical groupings (subfield share, Gini, half-life)
 are derived from `primary_topic` only. The full `topics` array is retained in
@@ -66,7 +66,7 @@ unchanged. See `ARCHITECTURE.md` for the cross-boundary path convention.
 structs/lists. dbt staging parses and flattens them. The forced-String choice
 (over inferring structs and `json_encode`-ing them back) preserves fidelity:
 struct round-trip fabricates explicit `null`s for keys a record never had.
-See `docs/bronze-design.md`.
+See `docs/design-archive/bronze-design.md`.
 
 **Provenance**: Bronze adds **no per-record columns** — no `_extracted_at`.
 All provenance lives at **year granularity** in `{bronze_root}/_MANIFEST.parquet`

@@ -13,7 +13,7 @@
 -- Silver: AI classification + projection to the analytical grain. One row per
 -- work, same grain as staging (no filter, no aggregation — trust the layer
 -- below). Adds the ai_strict/ai_broad ablation flags and carries forward only
--- the columns Q1–Q3 need. See docs/silver-design.md.
+-- the columns Q1–Q3 need. See docs/design-archive/silver-design.md.
 
 select
     -- identity + dimensions

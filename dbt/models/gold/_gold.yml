@@ -6,7 +6,8 @@ models:
       Q1 — AI's share of CS works per publication year, long over the two
       ablation variants (one row per publication_year × variant). Denominator
       is all silver works in the year. is_partial_year flags the in-flight
-      extraction year so the dashboard can dim it. See docs/gold-design.md §2.
+      extraction year so the dashboard can dim it. See
+      docs/design-archive/gold-design.md §2.
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -40,7 +41,7 @@ models:
       Per-paper citation half-life (cumulative-to-50%, linearly interpolated)
       over the 2012–2016 cohort. One row per cited cohort paper; zero-citation
       papers carry no row. Intermediate for Q2 — view, single consumer.
-      See docs/gold-design.md §3a–§3c.
+      See docs/design-archive/gold-design.md §3a–§3c.
     columns:
       - name: id
         tests:
@@ -57,8 +58,9 @@ models:
   - name: gold_citation_half_life_by_subfield
     description: >
       Q2 — citation half-life percentiles per CS subfield over the 2012–2016
-      cohort, with uncited-rate context. Strict/broad AI labels on the row for
-      downstream AI-vs-rest pooling. See docs/gold-design.md §3d.
+      cohort, with uncited-rate context. Strict/broad AI labels identify the AI
+      subfields; the published percentiles cannot be pooled downstream into
+      AI-vs-rest statistics. See docs/design-archive/gold-design.md §3d.
     tests:
       - dbt_utils.expression_is_true:
           arguments:
@@ -94,7 +96,7 @@ models:
       Q3 — Gini of cited_by_count per CS subfield over the 2012–2016 cohort,
       zero-citation papers included in the headline gini; gini_cited_only is
       the cited-papers-only secondary. Strict/broad AI labels on the row.
-      See docs/gold-design.md §4.
+      See docs/design-archive/gold-design.md §4.
     tests:
       # Adding zero-citation papers can only increase concentration, so the
       # headline gini bounds the cited-only gini from above.
@@ -121,9 +123,9 @@ models:
                 max_value: 1
       - name: gini_cited_only
         description: >
-          Secondary lens — Gini over cited papers only (docs/gold-design.md
-          §4c), disentangling concentration from the uncited-rate. NULL for a
-          subfield with no cited papers.
+          Secondary lens — Gini over cited papers only
+          (docs/design-archive/gold-design.md §4c), disentangling concentration
+          from the uncited-rate. NULL for a subfield with no cited papers.
         tests:
           - dbt_utils.accepted_range:
               arguments:

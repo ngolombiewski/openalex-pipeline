@@ -1,9 +1,11 @@
 -- Q2 — The Shelf Life: citation half-life per CS subfield over the 2012–2016
--- cohort (docs/gold-design.md §3). Grain: one row per subfield, with the
--- strict/broad AI labels on the row so AI-vs-rest pooling is a downstream
--- group-by. n_cited / uncited_rate give the context the half-life must be read
--- in: papers with no observable citations (~61% corpus-wide) have no half-life
--- and are excluded from the percentiles, not from n_papers.
+-- cohort (docs/design-archive/gold-design.md §3). Grain: one row per subfield,
+-- with strict/broad AI labels identifying the AI subfields. The published
+-- medians cannot be pooled downstream into AI-vs-rest statistics; that requires
+-- a separate paper-level aggregation. n_cited / uncited_rate give the context
+-- the half-life must be read in: papers with no observable citations (~61%
+-- corpus-wide) have no half-life and are excluded from the percentiles, not
+-- from n_papers.
 
 with cohort as (
 

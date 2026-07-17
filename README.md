@@ -2,8 +2,8 @@
 
 > **Status:** the full data path is built and verified — extraction → bronze →
 > GCS → BigQuery → dbt staging → silver → gold, with first-pass analytical
-> results below. Dagster orchestration is implemented and pending review; next
-> up is the Streamlit dashboard.
+> results below. Dagster orchestration is complete; the remaining work is the
+> Q2/Q3 analytical decision recorded in `PLAN.md` and Streamlit.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -22,13 +22,14 @@ against the ingestion manifest **to the exact row**.
 
 AI is classified from a work's `primary_topic.subfield` under two variants —
 `ai_strict` (Artificial Intelligence only) and `ai_broad` (+ Computer Vision
-and Pattern Recognition) — and every result is reported for both. See
+and Pattern Recognition). Q1 is reported for both variants; Q2/Q3 currently
+publish subfield rows carrying both classification flags. See
 [`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## First results
 
-*First pass, computed in the gold layer over the full corpus; strict variant
-quoted, broad tells the same story. Subject to refinement before the dashboard.*
+*First pass from prod gold. Q1 covers the full corpus and both variants; Q2/Q3
+use the 2012–2016 subfield grain. Subject to refinement before the dashboard.*
 
 **Q1 — The share of AI in CS is at an all-time high, but the path is not
 monotone.** AI already held ~31% of CS output in 1980, bottomed near 23%
@@ -41,7 +42,7 @@ modern taxonomy, which is what makes a 1980 "AI share" well-defined at all.)
 subfield grain, median citation half-life (2012–2016 cohort, citation-weighted
 median age, linearly interpolated) is ≈ 3.5 years for AI and similar across
 other CS subfields. A pooled AI-vs-rest statistic is not yet published; see the
-known gap in `docs/gold-design.md` §9.
+known gap in `docs/design-archive/gold-design.md` §9.
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
 looks.** Including all papers, every CS subfield is highly concentrated

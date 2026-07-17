@@ -16,14 +16,17 @@ The pipeline exists to answer three questions about AI's place in CS research:
 3. **The Winner's Game** — Is citation impact more concentrated in AI than
    in other CS subfields? (Gini coefficient)
 
-All three are computed for two AI-classification variants (`ai_strict` and
-`ai_broad`); see `DATA_MODEL.md`.
+The classification has two variants (`ai_strict` and `ai_broad`); see
+`DATA_MODEL.md`. Q1 is published for both variants. The current Q2/Q3 outputs
+are subfield-grain comparisons carrying both classification flags; pooled
+AI-vs-rest statistics are not yet implemented.
 
 ## Data Source
 
 OpenAlex `works` entity, filtered to the Computer Science field
-(`primary_topic.field.id:17`), year range 1950 to present — roughly 14.7 M
-records.
+(`primary_topic.field.id:17`). The current corpus bounds are 1950–2026, with
+roughly 14.8 M extracted records; the end year advances by an explicit annual
+configuration change.
 
 ## Pipeline Shape
 
@@ -43,13 +46,13 @@ Parquet on GCS
 BigQuery raw                 ── dbt staging
    │  (dbt models)
    ▼
-BigQuery silver              ── dbt models, AI classification, flattening
+BigQuery silver              ── dbt models, AI classification and projection
    │  (dbt models)
    ▼
 BigQuery gold                ── analytical aggregates, Q1/Q2/Q3
    │
    ▼
-Streamlit dashboard
+Streamlit dashboard (planned)
 ```
 
 Dagster models the whole DAG as software-defined assets. The full historical
@@ -65,13 +68,13 @@ next. Internal design is in the layer's own design doc.
 
 | Layer | Input | Output | Location |
 |---|---|---|---|
-| Extraction | OpenAlex API | JSONL, one page-file per API page, sharded by `publication_year`. Year reports as completion signals. | Local: `${OPENALEX_DATA_ROOT}/extract/{year}/` |
+| Extraction | OpenAlex API | JSONL, one page-file per API page, sharded by `publication_year`. Year reports as completion signals. | Local: `${OPENALEX_DATA_DIR}/{year}/` |
 | Bronze | Extraction JSONL | Parquet, one file per `publication_year` shard. Manifest with year-grained provenance. | Local: `${OPENALEX_DATA_ROOT}/bronze/{year}.parquet` |
 | Bronze → GCS | Local bronze Parquet | Same Parquet, Hive-prefixed path for BigQuery partition pruning. | `gs://{bucket}/bronze/publication_year={year}/{year}.parquet` |
 | dbt staging | BigQuery external tables over GCS Parquet | BigQuery tables; nested JSON strings parsed and flattened. | BigQuery dataset |
 | dbt silver | dbt staging | BigQuery tables; AI classification applied, ablation variants computed. | BigQuery dataset |
 | dbt gold | dbt silver | BigQuery tables; analytical aggregates for Q1/Q2/Q3. | BigQuery dataset |
-| Streamlit | dbt gold | Web dashboard. | Cloud-hosted |
+| Streamlit (planned) | dbt gold | Web dashboard. | Cloud-hosted |
 
 The eight nested OpenAlex fields are landed in bronze as **raw JSON strings**,
 verbatim. dbt staging parses them. The choice and its rationale are in
@@ -125,8 +128,7 @@ further. It never uploads to GCS.
 
 ```
 /                       AGENTS.md, ARCHITECTURE.md, STATE.md, DATA_MODEL.md
-/data                   local extract + bronze data; not committed
-/docs                   design docs (per-layer), reference material
+/docs                   active and archived design docs, reference material
 /src/openalex_pipeline/
     extraction/         Python module — OpenAlex API → local JSONL
     bronze/             Python module — JSONL → Parquet
@@ -141,7 +143,7 @@ further. It never uploads to GCS.
     macros/
 /terraform/             cloud infrastructure
 /tests                  pytest for the Python modules
-/scripts /notebooks     one-offs, exploration
+/scripts                one-offs, exploration
 ```
 
 **Silver and gold are dbt-only.** There is no `src/openalex_pipeline/silver/`
@@ -156,7 +158,10 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
   `docs/design-archive/bronze-design.md`.
 - **Upload** — Python module at `src/openalex_pipeline/upload/`. Design:
   `docs/design-archive/upload-design.md`.
-- **dbt staging** — `dbt/models/staging/`. Design: `docs/staging-design.md`.
-- **dbt silver / gold** — `dbt/models/`. Designs: `docs/silver-design.md` and
-  `docs/gold-design.md`.
+- **dbt staging** — `dbt/models/staging/`. Archived design:
+  `docs/design-archive/staging-design.md`.
+- **dbt silver / gold** — `dbt/models/`. Archived designs:
+  `docs/design-archive/silver-design.md` and
+  `docs/design-archive/gold-design.md`.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
+  Design: `docs/orchestration-design.md`.
