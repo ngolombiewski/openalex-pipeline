@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-07-15*
+*Last updated: 2026-07-17*
 
 Edit at the **end** of every session whose work changes the state. If this
 file falls more than a session or two behind, throw it out and rewrite —
@@ -175,13 +175,13 @@ stale state is worse than no state.
 (Steps per `PLAN.md`; staging/silver committed; gold done on prod, pending
 review + commit.)
 
-9. Dagster orchestration — **designed and implemented (2026-07-09),
-   pending review.** Supersedes the
+9. Dagster orchestration — **designed, implemented, and review-round-2 fixes
+   applied (2026-07-17); ready for the next review cycle.** Supersedes the
    2026-07-07 scope note: full asset graph (unpartitioned wrappers over the
    existing runners + `dagster-dbt`, Dagster log advisory-only), a **daily
    `local_sweep`** (bootstrap and refresh are the same converging job), a
-   **monthly invalidation** of the current year (new guarded
-   `invalidate_year` capability — the only module-contract change), and a
+   **monthly invalidation request** for the current year (durable tombstone +
+   sweep-owned executor), and a
    **staleness sensor** gating the prod dbt rebuild on
    converged-∧-warehouse-stale, derived purely from FS/GCS/BQ metadata.
    Automation boundary revised: manual full backfill, automated refresh
@@ -195,6 +195,20 @@ review + commit.)
    subfield-grain gold tables (medians/Ginis don't compose) — deferred to the
    Q2/Q3 revisit; dashboard must stay subfield-comparison-only until then.
    Implementation added `src/openalex_pipeline/orchestration/` with
-   filesystem/GCS/BQ predicates, guarded `invalidate_year`, Dagster assets,
-   jobs, schedules, and sensor; tests in `tests/orchestration/`.
+   filesystem/GCS/BQ predicates, Dagster assets/jobs/schedules/sensor, and
+   tests in `tests/orchestration/`. Review round 2 (PLAN F0–F9) is closed:
+   canonical tracked `dagster.yaml` with bounded automatic retries; absolute
+   direnv-bootstrapped `DAGSTER_HOME`; interruption-safe request/executor
+   invalidation tombstones; exclusive writer/shared sensor filesystem locking;
+   strict upload-manifest completeness/schema validation; separate table/view
+   existence and table-freshness contracts; import-time serialized prod dbt
+   manifest preparation that works from a clean checkout; all automations
+   default RUNNING; and honest per-run asset metadata with wrapper/sensor/lock
+   coverage. Bare Dagster launch is pinned through `[tool.dagster]`.
+   Verification: full pytest **217 passed**, repo-wide Ruff lint clean, touched
+   paths Ruff-format and Pyright clean, clean-checkout subprocess green,
+   `dagster definitions validate` green, real instance config shows retries
+   enabled, and a production smoke loaded the end-to-end code location and
+   daemon successfully. Real sensor preflight and smoke both reported
+   `warehouse is fresh`; no warehouse build or local sweep launched.
 10. Streamlit dashboard.

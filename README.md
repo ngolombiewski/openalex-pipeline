@@ -98,6 +98,12 @@ lineage. The full historical pull stays manual; the bounded current-year
 refresh and warehouse rebuild are automated by a daily sweep, monthly
 invalidation, and staleness sensor.
 
+Starting Dagster starts the production automation: both schedules and the
+warehouse sensor default to running. Run Dagster only from a direnv-active
+shell. After changing `.envrc`, run `direnv allow`; after clearing the
+advisory `.dagster/` state directory, run `direnv reload` before restart so
+the absolute instance directory and canonical config link are recreated.
+
 ## The warehouse
 
 The dbt project (`dbt/`) models three layers on BigQuery, dev/prod split
