@@ -2,7 +2,8 @@
 
 > **Status:** the full data path is built and verified — extraction → bronze →
 > GCS → BigQuery → dbt staging → silver → gold, with first-pass analytical
-> results below. Next up: Dagster orchestration and a Streamlit dashboard.
+> results below. Dagster orchestration is implemented and pending review; next
+> up is the Streamlit dashboard.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -36,11 +37,11 @@ around 2012, and has climbed since — ~35% in 2025 and ~40% in the partial
 winters" narrative. (Caveat: OpenAlex assigns topics retroactively with a
 modern taxonomy, which is what makes a 1980 "AI share" well-defined at all.)
 
-**Q2 — No evidence so far that AI papers age faster.** Median citation
-half-life (2012–2016 cohort, citation-weighted median age, linearly
-interpolated) sits at ≈ 3.5 years for AI *and* for the rest of CS. An honest
-null so far — interesting precisely because the "fast-moving field" intuition
-predicts a gap.
+**Q2 — No evidence so far that AI papers age faster.** At the published
+subfield grain, median citation half-life (2012–2016 cohort, citation-weighted
+median age, linearly interpolated) is ≈ 3.5 years for AI and similar across
+other CS subfields. A pooled AI-vs-rest statistic is not yet published; see the
+known gap in `docs/gold-design.md` §9.
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
 looks.** Including all papers, every CS subfield is highly concentrated
@@ -92,9 +93,10 @@ Streamlit dashboard (next)
 
 **Terraform** provisions the cloud infrastructure (GCS bucket, BigQuery
 datasets, external table, service accounts + least-privilege IAM) out of band;
-**Dagster** (next) will model every layer as a software-defined asset for
-end-to-end lineage, with automation scoped to the cloud side — the local,
-credit-limited pull stays a manually materialized asset.
+**Dagster** models every layer as a software-defined asset for end-to-end
+lineage. The full historical pull stays manual; the bounded current-year
+refresh and warehouse rebuild are automated by a daily sweep, monthly
+invalidation, and staleness sensor.
 
 ## The warehouse
 
@@ -157,7 +159,7 @@ src/openalex_pipeline/
     extraction/     OpenAlex API → paginated JSONL (cursor-based, resumable)
     bronze/         JSONL → Parquet (schema enforcement, manifest)
     upload/         bronze Parquet → GCS (idempotent, Hive-partitioned)
-    orchestration/  Dagster definitions (next)
+    orchestration/  Dagster definitions, jobs, schedules, sensors
 dbt/                staging → silver → gold models + tests
 terraform/          GCS bucket, BigQuery datasets, external table, IAM
 tests/              pytest for the Python modules
