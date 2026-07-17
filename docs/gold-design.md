@@ -95,7 +95,11 @@ gold_citation_half_life_by_subfield(
 )
 ```
 
-Grain is **per subfield** (variant-agnostic; the strict/broad labels let the dashboard pool "AI vs rest" either way). An intermediate model `int_paper_half_life` (per-paper, ephemeral or view) does the unnest + cumulative crossing; the gold model aggregates it to subfield medians.
+Grain is **per subfield** (variant-agnostic; the strict/broad labels identify AI
+subfields under either definition). They do not make pooled AI-vs-rest metrics
+derivable from subfield aggregates; see §9. An intermediate model
+`int_paper_half_life` (per-paper, ephemeral or view) does the unnest + cumulative
+crossing; the gold model aggregates it to subfield medians.
 
 ---
 
@@ -131,7 +135,8 @@ gold_citation_gini_by_subfield(
 )
 ```
 
-Per subfield, within the cohort. AI-vs-rest pooling is again a downstream group-by on the flags.
+Per subfield, within the cohort. The flags support highlighting AI subfields,
+not pooling subfield Ginis into an AI-vs-rest Gini; see §9.
 
 ---
 
@@ -175,7 +180,28 @@ None of these block the _scaffold_ (models, vars, tests); they pin the _numbers_
 ## 8. What "done" looks like
 
 - Three gold tables build on dev (2012–2016 slice) then prod; all §5 tests green.
-- Q1 share rises over time and `ai_strict ≤ ai_broad` every year.
+- Q1 reports annual share and `ai_strict ≤ ai_broad` every year; no monotonic
+  trend is assumed.
 - Q2 returns a per-subfield median half-life over the cohort, with uncited-rate context; AI subfields are directly comparable to other CS subfields.
-- Q3 returns a per-subfield Gini ∈ [0,1]; AI vs rest is a one-line group-by.
+- Q3 returns a per-subfield Gini ∈ [0,1]; AI subfields are directly comparable
+  to other CS subfields. Pooled AI-vs-rest requires paper-level aggregation (§9).
 - A reviewer can see that the `counts_by_year` window (§1a) and the age confound (§1b) were handled deliberately, not missed.
+
+---
+
+## 9. Known gap (review finding, 2026-07-09)
+
+**Pooled AI-vs-rest is *not* derivable from the published gold tables.** Earlier
+drafts of §3d, §4d, and §8 claimed pooling was a downstream group-by on the
+flags. That is only true from *paper-level* rows (`silver_works` /
+`int_paper_half_life`). The gold tables publish subfield-grain medians,
+percentiles, and Ginis, and none of those compose: you cannot aggregate
+subfield medians into a pooled median, nor subfield Ginis into a pooled Gini.
+(The STATE.md sanity checks worked around this with unweighted averages of
+subfield medians — illustrative, not a real pooled statistic.)
+
+Resolution deferred to the planned Q2/Q3 revisit (cohort coverage, Gini
+through the current year). Options there: add variant-grain gold tables
+(pooled strict/broad/rest computed from paper level), or pin the dashboard
+story as subfield-comparison-only. Until then, the dashboard must not present
+pooled AI-vs-rest numbers computed from these tables.
