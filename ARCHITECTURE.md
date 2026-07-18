@@ -68,7 +68,7 @@ next. Internal design is in the layer's own design doc.
 
 | Layer | Input | Output | Location |
 |---|---|---|---|
-| Extraction | OpenAlex API | JSONL, one page-file per API page, sharded by `publication_year`. Year reports as completion signals. | Local: `${OPENALEX_DATA_DIR}/{year}/` |
+| Extraction | OpenAlex API | JSONL, one page-file per API page, sharded by `publication_year`. Year reports as completion signals. | Local: `${OPENALEX_DATA_ROOT}/extract/{year}/` |
 | Bronze | Extraction JSONL | Parquet, one file per `publication_year` shard. Manifest with year-grained provenance. | Local: `${OPENALEX_DATA_ROOT}/bronze/{year}.parquet` |
 | Bronze → GCS | Local bronze Parquet | Same Parquet, Hive-prefixed path for BigQuery partition pruning. | `gs://{bucket}/bronze/publication_year={year}/{year}.parquet` |
 | dbt staging | BigQuery external tables over GCS Parquet | BigQuery tables; nested JSON strings parsed and flattened. | BigQuery dataset |

@@ -13,7 +13,6 @@ from pathlib import Path
 
 from openalex_pipeline.extraction.settings import Settings
 
-OPENALEX_DATA_ROOT_ENV = "OPENALEX_DATA_ROOT"
 OPENALEX_GCS_BUCKET_ENV = "OPENALEX_GCS_BUCKET"
 OPENALEX_GCP_PROJECT_ENV = "OPENALEX_GCP_PROJECT"
 
@@ -35,23 +34,24 @@ class OrchestrationConfig:
 
 
 def load_config() -> OrchestrationConfig:
-    """Resolve config from the existing project env vars.
+    """Resolve config from the project environment variables.
 
-    Extraction keeps its root in ``OPENALEX_DATA_DIR`` through ``Settings``.
-    Bronze/upload CLIs use ``OPENALEX_DATA_ROOT`` for ``{root}/bronze``; Dagster
-    follows that same convention instead of inventing another path variable.
+    ``Settings`` resolves the one project data root and derives the extraction
+    landing zone. Orchestration derives the bronze root from that same root;
+    the filesystem lock helper receives the root and places its lock beside
+    both local layer directories.
 
     Raises:
         RuntimeError: required non-extraction env vars are missing.
         pydantic.ValidationError: extraction ``Settings`` is invalid.
     """
     settings = Settings()  # type: ignore[call-arg]
-    data_root = _required_env(OPENALEX_DATA_ROOT_ENV)
+    data_root = settings.data_root
     return OrchestrationConfig(
         settings=settings,
-        data_root=Path(data_root),
+        data_root=data_root,
         extract_root=settings.data_dir,
-        bronze_root=Path(data_root) / "bronze",
+        bronze_root=data_root / "bronze",
         years=settings.years,
         bucket_name=_required_env(OPENALEX_GCS_BUCKET_ENV),
         gcp_project=_required_env(OPENALEX_GCP_PROJECT_ENV),

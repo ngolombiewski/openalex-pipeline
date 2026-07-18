@@ -16,7 +16,8 @@ Required env vars (all prefixed ``OPENALEX_``):
                                 ``primary_topic.field.id:17``.
   - ``OPENALEX_START_YEAR``  -- Inclusive lower bound (int).
   - ``OPENALEX_END_YEAR``    -- Inclusive upper bound (int).
-  - ``OPENALEX_DATA_DIR``    -- Extraction root directory (Path).
+  - ``OPENALEX_DATA_ROOT``   -- Project data root directory (Path). The
+                                extraction landing zone is ``{data_root}/extract``.
 
 A ``.env`` file in the working directory is auto-loaded (pydantic-settings
 default). Process env vars take precedence over .env values.
@@ -47,7 +48,12 @@ class Settings(BaseSettings):
     filter: str
     start_year: int
     end_year: int
-    data_dir: Path
+    data_root: Path
+
+    @property
+    def data_dir(self) -> Path:
+        """Return the extraction landing directory under ``data_root``."""
+        return self.data_root / "extract"
 
     @model_validator(mode="after")
     def _years_in_order(self) -> Self:

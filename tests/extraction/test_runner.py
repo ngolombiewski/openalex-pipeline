@@ -10,7 +10,8 @@ from openalex_pipeline.extraction.exceptions import DailyLimitReached
 from openalex_pipeline.extraction.models import YearOutcome, YearReport
 from openalex_pipeline.extraction.settings import Settings
 
-ROOT = Path("/extract-root")
+DATA_ROOT = Path("/pipeline-data")
+ROOT = DATA_ROOT / "extract"
 API_KEY = "test-key"
 FILTER = "primary_topic.field.id:17"
 
@@ -21,7 +22,7 @@ def make_settings(start: int, end: int) -> Settings:
         filter=FILTER,
         start_year=start,
         end_year=end,
-        data_dir=ROOT,
+        data_root=DATA_ROOT,
     )
 
 
@@ -98,9 +99,7 @@ def test_run_invokes_worker_for_each_year_with_canonical_query(
     # Every call must receive the configured root, api key, and the real
     # connector.fetch_page (the runner is the only one that wires this).
     assert all(
-        call[0] == ROOT
-        and call[3] == API_KEY
-        and call[4] is connector.fetch_page
+        call[0] == ROOT and call[3] == API_KEY and call[4] is connector.fetch_page
         for call in fake.calls
     )
 

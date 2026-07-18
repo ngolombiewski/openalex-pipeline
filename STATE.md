@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-07-17*
+*Last updated: 2026-07-18*
 
 This file records current repository and deployed-pipeline state. Completed
 implementation history belongs in git and archived design docs, not here.
@@ -42,6 +42,10 @@ All implemented modules have been reviewed and approved.
   is serialized with filesystem locks, warehouse retries are bounded, dbt
   manifest preparation works from a clean checkout, and all three automations
   default to running.
+- **Local data configuration** — `OPENALEX_DATA_ROOT` is the sole local data
+  location. Extraction and bronze derive `extract/` and `bronze/` beneath it,
+  and the orchestration lock remains at the root. Implemented, tested, and
+  approved.
 
 Completed extraction-through-gold designs are archived under
 `docs/design-archive/`. `docs/orchestration-design.md` remains the active
@@ -57,8 +61,8 @@ orchestration contract.
 - Prod dbt has been built successfully and its tests pass. The last recorded
   full staging build billed 43.2 GiB, below the configured 100 GiB per-job cap.
 - The canonical dev slice is 2012–2016, matching the current Q2/Q3 cohort.
-- The latest repository verification is **218 pytest tests passed**, with Ruff,
-  Ruff format, Pyright on the orchestration paths, Dagster definitions
+- The latest repository verification is **220 pytest tests passed**, with Ruff,
+  Ruff format, Pyright on the touched Python paths, Dagster definitions
   validation, and the real instance retry configuration all green.
 - The latest live orchestration preflight reported `warehouse is fresh`; it
   launched neither a local sweep nor a warehouse build.

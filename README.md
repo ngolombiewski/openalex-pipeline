@@ -177,6 +177,10 @@ docs/               per-layer design docs and reference material
 
 Requires Python ≥ 3.12 and [`uv`](https://docs.astral.sh/uv/). Configuration
 is via environment variables; see [`.env.example`](.env.example).
+`OPENALEX_DATA_ROOT` is the single local data root: extraction uses its
+`extract/` child, bronze uses `bronze/`, and orchestration keeps its lock at the
+root. The bronze and upload path flags remain explicit overrides for one-off
+operations.
 
 ```bash
 uv sync
