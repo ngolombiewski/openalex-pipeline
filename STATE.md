@@ -64,7 +64,7 @@ contract.
   full staging build billed 43.2 GiB, below the configured 100 GiB per-job cap.
 - The canonical dev slice is 2012–2016, matching the Q3 cohort. It is a
   structural development target for Q2, not an analytical preview of prod Q2.
-- The latest repository verification is **220 pytest tests passed**, with Ruff,
+- The latest repository verification is **247 pytest tests passed**, with Ruff,
   Ruff format, Pyright on the touched Python paths, Dagster definitions
   validation, and the real instance retry configuration all green.
 - The local Q2 implementation parses and compiles offline with **5 dbt models,

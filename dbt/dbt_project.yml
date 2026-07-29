@@ -32,8 +32,9 @@ models:
 
 vars:
   # Corpus bounds — honest prod defaults (the real 1950–2026 corpus). Dev
-  # overrides to the canonical dev slice — the Q2/Q3 analytical cohort, so dev
-  # gold tables preview prod numbers (counts_by_year only covers 2012+):
+  # overrides to the canonical dev slice — the Q3 analytical cohort and a
+  # cheap structural target for Q2. Dev Q2 values do not preview prod because
+  # the dev slice omits older cited works:
   #   dbt run --vars '{year_min: 2012, year_max: 2016}'
   year_min: 1950
   year_max: 2026
@@ -43,12 +44,16 @@ vars:
   subfield_ai: "https://openalex.org/subfields/1702"    # Artificial Intelligence
   subfield_cv_pr: "https://openalex.org/subfields/1707" # Computer Vision and Pattern Recognition
 
-  # Q2/Q3 publication cohort (docs/design-archive/gold-design.md §1).
-  # counts_by_year only
-  # covers 2012+, so half-life — and the age-controlled Gini, for symmetry —
-  # are computed over this cohort. Same bounds as the canonical dev slice.
-  half_life_cohort_min: 2012
-  half_life_cohort_max: 2016
+  # Q2 citation-year snapshot bounds (docs/gold-revisit-design.md §3b).
+  # Independent of publication-year bounds and advanced only after a manual
+  # full-corpus refresh and prod reconciliation.
+  citation_age_year_min: 2012
+  citation_age_year_max: 2025
+
+  # Q3 age-controlled publication cohort. Same bounds as the canonical dev
+  # slice.
+  gini_cohort_min: 2012
+  gini_cohort_max: 2016
 
   # 2026 extraction is in-flight; Q1 flags the year so the dashboard can dim it.
   partial_year: 2026

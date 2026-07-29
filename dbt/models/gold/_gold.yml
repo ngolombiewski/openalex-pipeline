@@ -36,60 +36,110 @@ models:
                 min_value: 0
                 max_value: 1
 
-  - name: int_paper_half_life
+  - name: gold_citation_age_by_year
     description: >
-      Per-paper citation half-life (cumulative-to-50%, linearly interpolated)
-      over the 2012–2016 cohort. One row per cited cohort paper; zero-citation
-      papers carry no row. Intermediate for Q2 — view, single consumer.
-      See docs/design-archive/gold-design.md §3a–§3c.
+      Q2 — annual citation-weighted age of cited CS works, partitioned into
+      mutually exclusive AI, CV/PR, and rest-of-CS cited-work groups. One row
+      per citation_year × cited_group over the explicit snapshot window.
+      Quantiles are discrete integer ages; recency shares are weighted by
+      positive citation events. See docs/gold-revisit-design.md.
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - citation_year
+              - cited_group
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "cited_works <= citation_events"
     columns:
-      - name: id
-        tests:
-          - not_null
-          - unique
-      - name: half_life
-        description: Citation age (years, continuous) at the 50% crossing.
+      - name: citation_year
+        data_type: int64
+        description: Citation-event year within the inclusive configured window.
         tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments:
-                min_value: 0
-
-  - name: gold_citation_half_life_by_subfield
-    description: >
-      Q2 — citation half-life percentiles per CS subfield over the 2012–2016
-      cohort, with uncited-rate context. Strict/broad AI labels identify the AI
-      subfields; the published percentiles cannot be pooled downstream into
-      AI-vs-rest statistics. See docs/design-archive/gold-design.md §3d.
-    tests:
-      - dbt_utils.expression_is_true:
-          arguments:
-            expression: "n_cited <= n_papers"
-    columns:
-      - name: subfield_id
+                min_value: "{{ var('citation_age_year_min') }}"
+                max_value: "{{ var('citation_age_year_max') }}"
+      - name: cited_group
+        data_type: string
+        description: Mutually exclusive cited-work group.
         tests:
           - not_null
-          - unique
-      - name: n_papers
+          - accepted_values:
+              arguments:
+                values: ['ai', 'cv_pr', 'rest_cs']
+      - name: citation_events
+        data_type: int64
+        description: Sum of positive citation-event weights in the group/year.
         tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 1
-      - name: uncited_rate
+      - name: cited_works
+        data_type: int64
+        description: Distinct cited works contributing positive events.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: p25_citation_age
+        data_type: int64
+        description: Discrete citation-weighted 25th percentile age in years.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: median_citation_age
+        data_type: int64
+        description: Discrete citation-weighted median age in years.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: p75_citation_age
+        data_type: int64
+        description: Discrete citation-weighted 75th percentile age in years.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: share_age_lte_2
+        data_type: float64
+        description: Citation-event share received by works aged 0–2 years.
         tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
                 max_value: 1
-      - name: median_half_life
-        description: NULL only for a subfield with zero cited papers.
+      - name: share_age_lte_5
+        data_type: float64
+        description: Citation-event share received by works aged 0–5 years.
         tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
-                inclusive: false
+                max_value: 1
+      - name: share_age_lte_10
+        data_type: float64
+        description: Citation-event share received by works aged 0–10 years.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
 
   - name: gold_citation_gini_by_subfield
     description: >
@@ -131,3 +181,115 @@ models:
               arguments:
                 min_value: 0
                 max_value: 1
+
+unit_tests:
+  - name: citation_age_weighted_metrics_and_groups
+    description: >
+      Pins Q2's cited-work classification, discrete weighted quantiles,
+      distinct-work count, and nested recency shares with exact fixture values.
+    model: gold_citation_age_by_year
+    overrides:
+      vars:
+        citation_age_year_min: 2020
+        citation_age_year_max: 2020
+    given:
+      - input: ref('silver_works')
+        format: sql
+        rows: |
+          select
+              'ai-age-0' as id,
+              2020 as publication_year,
+              '{{ var("subfield_ai") }}' as primary_topic_subfield_id,
+              [struct(2020 as year, 1 as cited_by_count)] as counts_by_year
+          union all
+          select
+              'ai-age-2',
+              2018,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 3 as cited_by_count)]
+          union all
+          select
+              'ai-age-3',
+              2017,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 4 as cited_by_count)]
+          union all
+          select
+              'ai-age-6',
+              2014,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 4 as cited_by_count)]
+          union all
+          select
+              'ai-age-11',
+              2009,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 4 as cited_by_count)]
+          union all
+          select
+              'cv-pr-age-1',
+              2019,
+              '{{ var("subfield_cv_pr") }}',
+              [struct(2020 as year, 2 as cited_by_count)]
+          union all
+          select
+              'null-subfield-age-11',
+              2009,
+              cast(null as string),
+              [struct(2020 as year, 1 as cited_by_count)]
+          union all
+          select
+              'excluded-negative-age',
+              2021,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 7 as cited_by_count)]
+          union all
+          select
+              'excluded-out-of-window',
+              2018,
+              '{{ var("subfield_ai") }}',
+              [struct(2021 as year, 7 as cited_by_count)]
+          union all
+          select
+              'excluded-zero-count',
+              2020,
+              '{{ var("subfield_ai") }}',
+              [struct(2020 as year, 0 as cited_by_count)]
+    expect:
+      format: sql
+      rows: |
+        select
+            2020 as citation_year,
+            'ai' as cited_group,
+            16 as citation_events,
+            5 as cited_works,
+            2 as p25_citation_age,
+            3 as median_citation_age,
+            6 as p75_citation_age,
+            cast(0.25 as float64) as share_age_lte_2,
+            cast(0.50 as float64) as share_age_lte_5,
+            cast(0.75 as float64) as share_age_lte_10
+        union all
+        select
+            2020,
+            'cv_pr',
+            2,
+            1,
+            1,
+            1,
+            1,
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64)
+        union all
+        select
+            2020,
+            'rest_cs',
+            1,
+            1,
+            11,
+            11,
+            11,
+            cast(0.0 as float64),
+            cast(0.0 as float64),
+            cast(0.0 as float64)

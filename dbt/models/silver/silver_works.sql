@@ -36,6 +36,6 @@ select
     -- measures for the analytical questions
     cited_by_count,     -- Q3 (Gini on citation impact)
     fwci,               -- Q3 alternative impact measure
-    counts_by_year      -- Q2 (half-life); kept nested, reshaped in gold
+    counts_by_year      -- Q2 (annual citation age); kept nested for gold
 
 from {{ ref('stg_works') }}

@@ -138,7 +138,7 @@ def test_is_converged_rejects_invalid_tombstones(tmp_path: Path, marker: str) ->
 
 
 TABLE = DbtRelationSpec("stg_works", "table")
-VIEW = DbtRelationSpec("int_paper_half_life", "view")
+VIEW = DbtRelationSpec("diagnostic_view", "view")
 
 
 def test_warehouse_stale_uses_table_timestamps_only() -> None:

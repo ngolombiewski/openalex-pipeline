@@ -30,11 +30,17 @@ Remaining:
 
 1. Nils reviews the local implementation.
 2. Build and test on dev for structure.
-3. Build, reconcile, and analytically inspect on prod.
-4. Remove only the obsolete Q2 relations from the dev and prod datasets.
-5. Validate the deployed Dagster definitions and warehouse preflight.
-6. Update result-bearing documentation with the validated prod findings.
-7. Review the deployed result.
+3. Before the prod run, capture BigQuery dry-run byte estimates for the Q2
+   model and the four full-population unnest tests
+   (`assert_citation_age_source_valid`, `warn_citation_age_negative_entries`,
+   and both reconciliation tests). During the run, record actual processed and
+   billed bytes per job and confirm each remains below the 100 GiB cap.
+4. Build, reconcile, and analytically inspect on prod.
+5. Remove only the obsolete Q2 relations from the dev and prod datasets.
+6. Validate the deployed Dagster definitions and warehouse preflight.
+7. Update result-bearing documentation with the validated prod findings,
+   including the measured Q2 model/test query costs.
+8. Review the deployed result.
 
 Do not edit the archived gold design.
 

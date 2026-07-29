@@ -88,7 +88,7 @@ parsed as (
         json_value(ids, '$.pmid')                                           as pmid,
         json_value(ids, '$.pmcid')                                          as pmcid,
 
-        -- counts_by_year — typed nested array, critical for half-life (Q2).
+        -- counts_by_year — typed nested array, critical for citation age (Q2).
         -- Kept nested, not pre-aggregated. Empty/[] (zero-citation works, ~61%
         -- of the corpus) yields an empty array, not an error.
         array(

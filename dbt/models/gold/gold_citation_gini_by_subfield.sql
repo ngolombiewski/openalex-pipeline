@@ -1,6 +1,6 @@
--- Q3 — The Winner's Game: Gini of cited_by_count per CS subfield, over the
--- same 2012–2016 cohort as Q2
--- (age control, docs/design-archive/gold-design.md §4).
+-- Q3 — The Winner's Game: Gini of cited_by_count per CS subfield over the
+-- pinned 2012–2016 age-controlled publication cohort
+-- (docs/design-archive/gold-design.md §4).
 -- The headline gini *includes* zero-citation papers: the uncited majority vs
 -- the cited few is the concentration story, and dropping zeros would
 -- understate it. gini_cited_only is the secondary lens (§4c): concentration
@@ -22,7 +22,7 @@ with cohort as (
         cited_by_count
     from {{ ref('silver_works') }}
     where publication_year
-        between {{ var('half_life_cohort_min') }} and {{ var('half_life_cohort_max') }}
+        between {{ var('gini_cohort_min') }} and {{ var('gini_cohort_max') }}
 
 ),
 
