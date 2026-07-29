@@ -21,9 +21,10 @@ comparison at `citation_year × cited_group`, where `cited_group` is `ai`,
 `cv_pr`, or `rest_cs`. It covers citation years 2012–2025 as a full-corpus
 snapshot; monthly current-year refresh does not extend its freshness.
 
-Local implementation is complete: model/schema contracts, generic and
-singular tests, `gold_citation_age_by_year`, superseded-model removal, Q3 var
-renaming, dbt parse/compile, and the local verification suite are green.
+Local implementation is complete: model/schema contracts, generic, singular,
+and deterministic metric unit tests, `gold_citation_age_by_year`,
+superseded-model removal, Q3 var renaming, dbt parse/compile, and the local
+verification suite are green.
 
 Remaining:
 

@@ -67,9 +67,10 @@ contract.
 - The latest repository verification is **220 pytest tests passed**, with Ruff,
   Ruff format, Pyright on the touched Python paths, Dagster definitions
   validation, and the real instance retry configuration all green.
-- The local Q2 implementation parses and compiles offline with **5 dbt models
-  and 60 data tests**. Its manifest contains `gold_citation_age_by_year` and
-  neither obsolete Q2 relation.
+- The local Q2 implementation parses and compiles offline with **5 dbt models,
+  60 data tests, and 1 deterministic unit test**. Its manifest contains
+  `gold_citation_age_by_year` and neither obsolete Q2 relation. The Q2 unit
+  fixture passes against the BigQuery dev target.
 - The latest live orchestration preflight reported `warehouse is fresh`; it
   launched neither a local sweep nor a warehouse build.
 

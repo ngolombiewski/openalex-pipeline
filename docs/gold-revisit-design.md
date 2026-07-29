@@ -279,16 +279,30 @@ Contracts are added to `dbt/models/gold/_gold.yml` before model SQL.
 - every configured citation year has exactly the three expected group rows;
 - `p25_citation_age <= median_citation_age <= p75_citation_age`;
 - `share_age_lte_2 <= share_age_lte_5 <= share_age_lte_10`;
-- within each citation year, the three groups' `citation_events` sum exactly
-  to the eligible source total;
-- within each citation year, the three groups' `cited_works` sum exactly to
-  the eligible distinct-work total;
+- for every `citation_year × cited_group`, `citation_events` reconciles exactly
+  to an independently grouped eligible source total;
+- for every `citation_year × cited_group`, `cited_works` reconciles exactly to
+  an independently grouped eligible distinct-work total;
 - no null years/counts, negative counts, or duplicate work/year entries enter
   the configured source slice;
 - negative-age entries are visible through the warning diagnostic specified in
   §7.
 
-### 9c. Prod reconciliation
+### 9c. Deterministic metric unit test
+
+A dbt unit fixture pins the core analytical calculation independently of the
+population-level invariants. It must cover:
+
+- uneven positive citation weights;
+- exact cumulative-weight threshold crossings for p25, median, and p75;
+- distinct-work counting rather than event counting;
+- all three recency-share boundaries with distinct expected values;
+- AI, CV/PR, and null-subfield-to-`rest_cs` classification.
+
+The expected quantiles and shares are literal fixture outputs, not recomputed
+with the model's implementation logic.
+
+### 9d. Prod reconciliation
 
 Before approval:
 
@@ -357,7 +371,7 @@ Advancing `citation_age_year_max` requires:
 1. a deliberate manual full-corpus re-extraction;
 2. bronze ingestion and upload convergence for every publication shard;
 3. an explicit var change;
-4. a prod rebuild and the reconciliation in §9c.
+4. a prod rebuild and the reconciliation in §9d.
 
 Automating that full-corpus refresh or implementing record-level incremental
 updates is out of scope. The dashboard must label Q2 with its citation-year
