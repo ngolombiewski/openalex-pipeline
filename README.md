@@ -1,9 +1,10 @@
 # openalex-pipeline
 
 > **Status:** the full data path is built and verified — extraction → bronze →
-> GCS → BigQuery → dbt staging → silver → gold, with first-pass analytical
-> results below. Dagster orchestration is complete; the remaining work is the
-> Q2/Q3 analytical decision recorded in `PLAN.md` and Streamlit.
+> GCS → BigQuery → dbt staging → silver → gold. Dagster orchestration is
+> complete. Q2's annual citation-age replacement is implemented and verified
+> locally; dev/prod deployment and reconciliation are pending. Q3's pooled
+> comparison, Streamlit, and closeout remain.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -16,20 +17,23 @@ against the ingestion manifest **to the exact row**.
 ## The questions
 
 1. **The Takeover** — How has AI's share of CS research grown over time?
-2. **The Shelf Life** — Do AI papers age faster? (citation half-life by subfield)
+2. **The Shelf Life** — How does the age of cited literature differ among AI,
+   CV/PR, and the rest of CS, and how has that changed over time? (annual
+   citation age)
 3. **The Winner's Game** — Is citation impact more concentrated in AI than in
    other CS subfields? (Gini coefficient)
 
-AI is classified from a work's `primary_topic.subfield` under two variants —
-`ai_strict` (Artificial Intelligence only) and `ai_broad` (+ Computer Vision
-and Pattern Recognition). Q1 is reported for both variants; Q2/Q3 currently
-publish subfield rows carrying both classification flags. See
-[`DATA_MODEL.md`](DATA_MODEL.md).
+Two pinned `primary_topic.subfield` ids identify Artificial Intelligence and
+Computer Vision and Pattern Recognition. Q1 reports strict AI and broad
+AI-plus-CV/PR variants. Q2 instead uses the more informative mutually exclusive
+AI, CV/PR, and rest-of-CS partition. Q3 currently publishes subfield rows
+carrying both classification flags. See [`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## First results
 
-*First pass from prod gold. Q1 covers the full corpus and both variants; Q2/Q3
-use the 2012–2016 subfield grain. Subject to refinement before the dashboard.*
+*Validated prod findings for Q1 and the current Q3 subfield view. Q2 results
+will be published only after the approved annual citation-age specification is
+implemented and reconciled.*
 
 **Q1 — The share of AI in CS is at an all-time high, but the path is not
 monotone.** AI already held ~31% of CS output in 1980, bottomed near 23%
@@ -38,11 +42,11 @@ around 2012, and has climbed since — ~35% in 2025 and ~40% in the partial
 winters" narrative. (Caveat: OpenAlex assigns topics retroactively with a
 modern taxonomy, which is what makes a 1980 "AI share" well-defined at all.)
 
-**Q2 — No evidence so far that AI papers age faster.** At the published
-subfield grain, median citation half-life (2012–2016 cohort, citation-weighted
-median age, linearly interpolated) is ≈ 3.5 years for AI and similar across
-other CS subfields. A pooled AI-vs-rest statistic is not yet published; see the
-known gap in `docs/design-archive/gold-design.md` §9.
+**Q2 — Annual citation age, results pending.** The decided replacement will
+measure the citation-weighted median age of cited AI, CV/PR, and rest-of-CS
+works in each year from 2012 through 2025. It is explicitly a full-corpus
+snapshot, not a live current-year metric. See
+[`docs/gold-revisit-design.md`](docs/gold-revisit-design.md).
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
 looks.** Including all papers, every CS subfield is highly concentrated
@@ -62,14 +66,12 @@ AI and CV/PR have the *lowest* uncited rates in CS yet the *highest*
 concentration among cited papers: AI papers get cited more often than average,
 but the winnings pool at the top.
 
-**Methodology notes.** OpenAlex's per-paper citation counts
-(`counts_by_year`) cover a fixed 2012–2026 window (verified across all
-cohorts), so Q2/Q3 are computed on a 2012–2016 publication cohort — the years
-with full from-publication coverage and 10–14 years of follow-up. The cohort
-also controls the age confound (older papers mechanically accumulate more
-citations). Zero-citation papers are excluded from half-life (no half-life to
-measure; reported as uncited-rate context) and included in the headline Gini
-(the uncited majority *is* part of the concentration story).
+**Methodology notes.** Q2 will use OpenAlex's year-resolved citation counts
+(`counts_by_year`) across the full cited-work corpus and classify the cited
+work, not the unknown citing work. Q3 uses the age-controlled 2012–2016
+publication cohort so older papers do not mechanically dominate cumulative
+citation totals. Zero-citation papers are included in the headline Gini: the
+uncited majority is part of the concentration story.
 
 ## Pipeline
 
@@ -120,16 +122,17 @@ across datasets, all rebuilt from the external table in one run:
 - **silver** (`silver_works`) — one classified row per work: the
   `ai_strict`/`ai_broad` flags (pinned subfield ids as vars) plus the
   analytical column set. Row count == staging, asserted.
-- **gold** — one question-shaped aggregate per analytical question, plus a
-  per-paper half-life intermediate. Tiny tables, heavy tests: range bounds on
-  every rate/share/Gini, uniqueness on every grain, and invariants like
-  *strict ⊆ broad must survive aggregation* and *cited-only Gini ≤ all-papers
-  Gini* pinned as data tests. 40+ tests, green on dev and prod.
+- **gold** — question-shaped analytical aggregates. Q1 and the current Q3
+  subfield view are deployed and validated. The approved
+  `gold_citation_age_by_year` Q2 replacement is implemented and verified
+  locally, with deployment pending. Model grains, ranges, classification
+  partitions, and analytical invariants are pinned as dbt tests.
 
 Costs are engineered, not hoped for: a per-job `maximum_bytes_billed` cap,
 physical (compressed) billing on the analytics datasets, and a canonical dev
-slice (2012–2016, ~18% of the corpus) that doubles as the Q2/Q3 analytical
-cohort, so dev gold previews prod numbers.
+slice (2012–2016, ~18% of the corpus) matching the Q3 analytical cohort. It is
+a structural development target for Q2; only the full prod corpus yields
+representative Q2 citation-age values.
 
 ## Key design choices
 
@@ -209,4 +212,5 @@ uv run pytest
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — project overview, layer contracts, boundaries
 - [`DATA_MODEL.md`](DATA_MODEL.md) — AI classification rules and the bronze schema
 - [`STATE.md`](STATE.md) — current state of the build
+- [`docs/gold-revisit-design.md`](docs/gold-revisit-design.md) — approved Q2 implementation contract
 - [`docs/`](docs/) — per-layer design docs

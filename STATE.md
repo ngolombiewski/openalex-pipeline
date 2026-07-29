@@ -1,13 +1,14 @@
 # STATE.md
 
-*Last updated: 2026-07-18*
+*Last updated: 2026-07-29*
 
 This file records current repository and deployed-pipeline state. Completed
 implementation history belongs in git and archived design docs, not here.
 
 ## Approved and complete
 
-All implemented modules have been reviewed and approved.
+All previously retained implementation has been reviewed and approved. The new
+Q2 implementation is locally verified and awaits project review and deployment.
 
 - **Extraction** — the resumable OpenAlex API pull is implemented, tested, and
   deployed locally. Years 1950–2025 are complete; 2026 is intentionally
@@ -31,10 +32,10 @@ All implemented modules have been reviewed and approved.
 - **dbt silver** — `silver_works` preserves staging grain and adds the pinned
   `ai_strict` and `ai_broad` classifications. Classification, subset, key, and
   row-count invariants are tested.
-- **dbt gold** — four models implement annual AI share, per-paper citation
-  half-life, subfield half-life summaries, and subfield citation Gini. The Q2
-  and Q3 cohort is 2012–2016; headline Gini includes uncited papers and the
-  secondary `gini_cited_only` separates concentration among cited papers.
+- **dbt gold, retained contracts** — Q1 implements annual strict/broad AI
+  share. Q3 implements subfield citation Gini over the 2012–2016 cohort;
+  headline Gini includes uncited papers and the secondary
+  `gini_cited_only` separates concentration among cited papers.
 - **Dagster orchestration** — the end-to-end asset graph, daily local sweep,
   monthly current-year invalidation request, and warehouse staleness sensor are
   implemented and tested. Filesystem/GCS/BigQuery state remains authoritative;
@@ -47,9 +48,10 @@ All implemented modules have been reviewed and approved.
   and the orchestration lock remains at the root. Implemented, tested, and
   approved.
 
-Completed extraction-through-gold designs are archived under
-`docs/design-archive/`. `docs/orchestration-design.md` remains the active
-orchestration contract.
+Completed baseline designs are archived under `docs/design-archive/`.
+`docs/gold-revisit-design.md` is the reviewed and approved Q2 implementation
+contract. `docs/orchestration-design.md` remains the active orchestration
+contract.
 
 ## Operational and data snapshot
 
@@ -60,28 +62,41 @@ orchestration contract.
   retraction/paratext, null-status, and deduplication rules.
 - Prod dbt has been built successfully and its tests pass. The last recorded
   full staging build billed 43.2 GiB, below the configured 100 GiB per-job cap.
-- The canonical dev slice is 2012–2016, matching the current Q2/Q3 cohort.
+- The canonical dev slice is 2012–2016, matching the Q3 cohort. It is a
+  structural development target for Q2, not an analytical preview of prod Q2.
 - The latest repository verification is **220 pytest tests passed**, with Ruff,
   Ruff format, Pyright on the touched Python paths, Dagster definitions
   validation, and the real instance retry configuration all green.
+- The local Q2 implementation parses and compiles offline with **5 dbt models
+  and 60 data tests**. Its manifest contains `gold_citation_age_by_year` and
+  neither obsolete Q2 relation.
 - The latest live orchestration preflight reported `warehouse is fresh`; it
   launched neither a local sweep nor a warehouse build.
 
 ## Known limitations
 
 - **Dashboard not implemented.** Streamlit is the remaining application layer.
-- **Q2/Q3 do not yet publish pooled AI-vs-rest statistics.** Their gold outputs
-  are one row per CS subfield with strict/broad classification flags. Subfield
-  medians and Ginis cannot be pooled downstream; pooled metrics require new
-  paper-level aggregations.
-- **Q2/Q3 source freshness is not automated.** The refresh automation currently
-  invalidates only the current-year shard, while the 2012–2016 cohort's
-  `counts_by_year` values can continue changing at OpenAlex.
+- **Q2 replacement not deployed.** `gold_citation_age_by_year` is implemented
+  and locally verified against the approved AI/CV-PR/rest-of-CS contract. Dev
+  and prod builds, prod reconciliation, analytical inspection, and obsolete
+  relation cleanup remain.
+- **Q2 is snapshot-scoped by decision.** It will publish citation years
+  2012–2025 from the current full-corpus snapshot. Extending the range requires
+  a manual full-corpus refresh; monthly current-year invalidation is not a Q2
+  freshness guarantee.
+- **Q3 does not publish pooled AI-vs-rest statistics.** Its output is one row
+  per CS subfield with strict/broad classification flags. Subfield Ginis
+  cannot be pooled downstream; a pooled metric requires a direct paper-level
+  aggregation.
+- **Q3 source freshness is not automated.** The current-year-only refresh does
+  not update cumulative citation counts on the 2012–2016 publication cohort.
 - **Year rollover is manual.** Advancing the corpus requires coordinated
   updates to extraction bounds and dbt vars.
 
 ## Current work
 
-See `PLAN.md`. The next decision is whether to close the Q2/Q3 analytical and
-refresh gaps before designing the dashboard. Recommendation: close them first
-so the dashboard is built against final, honestly refreshable gold contracts.
+See `PLAN.md`. Q2's analytical, grouping, model, test, removal, and freshness
+contracts are reviewed and approved; local implementation is ready for project
+review. Deployment and prod reconciliation follow that review. Q3's pooled
+comparison remains a separate decision. Dashboard design waits for final gold
+contracts.

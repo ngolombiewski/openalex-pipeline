@@ -350,12 +350,17 @@ existing bucket credentials.
   `insert_overwrite` plus the cross-partition dedup DELETE (duplicate ids
   span year shards; prod found 36) is real complexity to save fractions of a
   free-tier dollar. Full rebuild stands.
-- **Refresh scope beyond the current year** — Q2/Q3 freshness would require
-  re-extracting the 2012–2016 cohort shards (their `counts_by_year` keep
-  growing at the source); at ~2.7 M records that is a two-day refresh. Wanted
-  eventually (alongside extending Gini coverage toward the current year), but
-  a gold-methodology change first; the refresh-target knob here simply gains
-  years when that lands.
+- **Q2 full-corpus citation-history refresh** — the annual citation-age
+  contract reads `counts_by_year` from cited works across every publication
+  shard. Current-year invalidation therefore cannot produce a complete new
+  citation year. Q2 is explicitly a 2012–2025 full-corpus snapshot; advancing
+  that range requires a deliberate manual full-corpus refresh and an explicit
+  dbt var change. Automating it or adding record-level incremental updates is
+  out of scope; the current refresh-target contract does not change.
+- **Q3 cohort refresh** — cumulative citation counts on the 2012–2016
+  publication cohort can continue changing at OpenAlex. Refreshing those
+  shards is not automated and remains part of the pending Q3 analytical
+  decision.
 - **Cloud-hosted Dagster / always-on daemon** — the laptop daemon is
   accepted; revisit only if missed ticks ever matter.
 - **Year rollover automation** — bumping the corpus bound in January stays

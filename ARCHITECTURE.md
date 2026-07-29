@@ -12,14 +12,20 @@ output.
 The pipeline exists to answer three questions about AI's place in CS research:
 
 1. **The Takeover** — How has AI's share of CS research grown over time?
-2. **The Shelf Life** — Do AI papers age faster? (citation half-life by subfield)
+2. **The Shelf Life** — How does the age of cited literature differ among AI,
+   CV/PR, and the rest of CS, and how has that changed over time? (annual
+   citation age)
 3. **The Winner's Game** — Is citation impact more concentrated in AI than
    in other CS subfields? (Gini coefficient)
 
-The classification has two variants (`ai_strict` and `ai_broad`); see
-`DATA_MODEL.md`. Q1 is published for both variants. The current Q2/Q3 outputs
-are subfield-grain comparisons carrying both classification flags; pooled
-AI-vs-rest statistics are not yet implemented.
+The two pinned AI-related subfields support question-specific groupings; see
+`DATA_MODEL.md`. Q1 is published for the `ai_strict` and `ai_broad` variants.
+Q2's approved contract is an annual citation-weighted age comparison at
+`citation_year × cited_group`, where the mutually exclusive groups are AI,
+CV/PR, and the rest of CS. It is implemented locally; deployment and prod
+reconciliation are pending. Q3 currently publishes subfield-grain comparisons
+carrying both classification flags; a pooled AI-vs-rest Q3 statistic is not
+yet implemented.
 
 ## Data Source
 
@@ -60,6 +66,12 @@ backfill remains manual, while the bounded current-year refresh is automated:
 a daily local sweep, monthly invalidation of the current year, and a staleness
 sensor that rebuilds the warehouse after GCS has converged. Terraform
 provisions cloud infrastructure out of band.
+
+Q2 is deliberately a full-corpus analytical snapshot through citation year
+2025. Citation histories live on cited works across every publication shard,
+so the current-year-only automation cannot extend Q2 honestly. Advancing its
+explicit citation-year bound requires a manual full-corpus refresh; see
+`docs/gold-revisit-design.md`.
 
 ### Layer contracts
 
@@ -162,6 +174,7 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
   `docs/design-archive/staging-design.md`.
 - **dbt silver / gold** — `dbt/models/`. Archived designs:
   `docs/design-archive/silver-design.md` and
-  `docs/design-archive/gold-design.md`.
+  `docs/design-archive/gold-design.md`. Proposed Q2 revision:
+  `docs/gold-revisit-design.md`.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
   Design: `docs/orchestration-design.md`.

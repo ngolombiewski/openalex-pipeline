@@ -1,24 +1,23 @@
 # DATA_MODEL.md
 
-## AI Topic Classification
+## AI Topic Classification and Grouping
 
-### Rule
+### Pinned subfields
 
-A work is flagged as AI (`is_ai = true`) if its `primary_topic.subfield.id`
-matches one of the following OpenAlex subfields:
+Two OpenAlex primary-topic subfields receive explicit analytical treatment:
 
 - `Artificial Intelligence` — `https://openalex.org/subfields/1702`
-- `Computer Vision and Pattern Recognition` — `https://openalex.org/subfields/1707`
-  *(see ablation below)*
+- `Computer Vision and Pattern Recognition` —
+  `https://openalex.org/subfields/1707`
 
 Matching is on the subfield **id**, not the display name: the id is the stable
 upstream key, the name is a presentation string. The ids are pinned as
 `dbt_project.yml` vars (`subfield_ai`, `subfield_cv_pr`) and applied in the
-silver layer (`docs/design-archive/silver-design.md`).
+silver/gold analytical layers.
 
-Classification and all analytical groupings (subfield share, Gini, half-life)
-are derived from `primary_topic` only. The full `topics` array is retained in
-bronze but not used for classification.
+Classification and all analytical groupings (subfield share, Gini, annual
+citation age) are derived from `primary_topic` only. The full `topics` array
+is retained in bronze but not used for classification.
 
 ### Rationale
 
@@ -27,9 +26,12 @@ analytically defensible — a work's primary topic reflects its core
 contribution. We trust OpenAlex's classification rather than trying to
 second-guess it via the secondary topics array.
 
-CV/PR inclusion is a judgment call and is tested as an ablation.
+Whether CV/PR should be included under an aggregate “AI” label is a judgment
+call. The project preserves both the aggregate ablation flags and the
+underlying exclusive categories so each analytical question can use the more
+informative representation for its measure.
 
-### Ablation
+### Derived strict/broad flags
 
 Two classification variants are defined:
 
@@ -38,9 +40,25 @@ Two classification variants are defined:
 | `ai_strict` | Artificial Intelligence only | `1702` |
 | `ai_broad` | Artificial Intelligence + Computer Vision and Pattern Recognition | `1702`, `1707` |
 
-All analytical questions (Q1–Q3) are computed for both variants. Differences
-are reported. Measured against the full corpus, `ai_strict` is ≈27.5% and
-`ai_broad` ≈40.0% of CS works (sanity anchor, not a target).
+Q1 publishes both variants because publication counts and shares are additive.
+The flags remain pinned in `silver_works`. Measured against the full corpus,
+`ai_strict` is ≈27.5% and `ai_broad` ≈40.0% of CS works (sanity anchor, not a
+target).
+
+### Exclusive Q2 cited-work groups
+
+Q2 uses a mutually exclusive partition because citation-age quantiles are
+nonlinear and a combined AI+CV/PR median would hide CV/PR's own distribution:
+
+| Group | Rule |
+|---|---|
+| `ai` | Primary-topic subfield id `1702` |
+| `cv_pr` | Primary-topic subfield id `1707` |
+| `rest_cs` | Every other `silver_works` row |
+
+Q3 remains at individual CS-subfield grain. Its strict/broad flags label the
+AI-related subfield rows but do not turn subfield statistics into pooled
+variant-level results.
 
 ---
 
@@ -91,7 +109,7 @@ in bronze — date/timestamp typing is deferred to dbt staging.
 | `primary_topic` | string (JSON) | Full object: id, display_name, subfield, field |
 | `topics` | string (JSON) | Full topic array — retained but not used for classification |
 | `cited_by_count` | int | Cumulative total |
-| `counts_by_year` | string (JSON) | Year-resolved citations — critical for half-life approximation |
+| `counts_by_year` | string (JSON) | Year-resolved citations — critical for annual citation-age analysis |
 | `cited_by_percentile_year` | string (JSON) | |
 | `citation_normalized_percentile` | string (JSON) | |
 | `fwci` | float | Field-weighted citation impact |

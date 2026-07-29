@@ -1,48 +1,57 @@
 # PLAN.md — Remaining project work
 
-*Updated: 2026-07-17*
+*Updated: 2026-07-28*
 
 Extraction, bronze, upload, Terraform, dbt staging/silver/gold, and Dagster
-orchestration are implemented, reviewed, and approved. Historical plans and
-review findings live in git history; this file contains only work still ahead.
+orchestration are implemented. Q1, Q3, and orchestration are reviewed and
+approved. Q2's replacement direction and snapshot-freshness decision are
+approved, its rigorous specification is reviewed, and its local implementation
+is complete. Historical plans and review findings live in git history; this
+file contains only work still ahead.
 
 The project workflow remains: discuss the design, pin contracts, write tests,
 implement, then review. Do not begin implementation until Nils gives the
 signal.
 
-## Decision gate — Q2/Q3 before the dashboard
+## 1. Review and deploy the Q2 replacement
 
-The current gold layer publishes Q2 and Q3 at CS-subfield grain. It does not
-publish pooled AI-vs-rest statistics, because subfield medians and Ginis do not
-compose. Its 2012–2016 citation cohort is also outside the current-year-only
-refresh policy, so those citation observations can become stale at the source.
+The reviewed implementation contract is in
+`docs/gold-revisit-design.md`. Q2 becomes an annual, citation-weighted cited-age
+comparison at `citation_year × cited_group`, where `cited_group` is `ai`,
+`cv_pr`, or `rest_cs`. It covers citation years 2012–2025 as a full-corpus
+snapshot; monthly current-year refresh does not extend its freshness.
 
-**Recommendation:** resolve the Q2/Q3 analytical and refresh contracts before
-designing Streamlit. Otherwise the dashboard either overstates what the gold
-tables answer or is built against interfaces that are expected to change.
+Local implementation is complete: model/schema contracts, generic and
+singular tests, `gold_citation_age_by_year`, superseded-model removal, Q3 var
+renaming, dbt parse/compile, and the local verification suite are green.
 
-Nils decides whether to accept that recommendation or proceed directly to the
-subfield-comparison dashboard.
+Remaining:
 
-## 1. Revisit Q2/Q3 gold contracts — pending decision
+1. Nils reviews the local implementation.
+2. Build and test on dev for structure.
+3. Build, reconcile, and analytically inspect on prod.
+4. Remove only the obsolete Q2 relations from the dev and prod datasets.
+5. Validate the deployed Dagster definitions and warehouse preflight.
+6. Update result-bearing documentation with the validated prod findings.
+7. Review the deployed result.
 
-Design first. At minimum, decide:
+Do not edit the archived gold design.
 
-1. Whether to add variant-grain pooled AI-vs-rest outputs computed directly
-   from paper-level data for half-life and Gini.
-2. Whether Q3 remains on the age-controlled 2012–2016 cohort or gains an
-   additional, explicitly interpreted view through the current year.
-3. Which historical shards must be refreshed to keep citation-derived outputs
-   current, and how that broader refresh fits the existing invalidation and
-   convergence contracts.
-4. Whether the current subfield-grain tables remain published alongside any
-   pooled tables.
+## 2. Decide the remaining Q3 contract
 
-After approval: write a new active gold-revisit design, pin model contracts,
-add dbt tests, implement, build on dev and prod, reconcile, and review. Do not
-edit the archived gold design as though it were current.
+Q3 still publishes CS-subfield Ginis over the age-controlled 2012–2016 cohort.
+Its subfield statistics cannot be pooled downstream. Decide:
 
-## 2. Streamlit dashboard — not designed
+1. Whether to add direct paper-level, variant-grain AI-vs-rest outputs.
+2. Whether the age-controlled cohort remains the sole view or gains a
+   separately interpreted recent view.
+3. Whether and how the cohort's cumulative citation counts should be refreshed.
+4. Whether subfield-grain outputs remain alongside a pooled headline.
+
+Write and approve the Q3 addition to the active gold-revisit design before
+implementation.
+
+## 3. Streamlit dashboard — not designed
 
 Once its gold inputs are final:
 
@@ -50,13 +59,15 @@ Once its gold inputs are final:
    deployment target, and data-access path.
 2. Write the dashboard design and explicit data/UI contracts.
 3. Add tests before implementation where practical.
-4. Implement the three question views and shared navigation/variant controls.
+4. Implement the three question views, shared navigation, and
+   question-specific group/variant controls.
 5. Validate against prod gold outputs, deploy, document operation, and review.
 
-The dashboard must visibly distinguish the partial current year and must not
-describe subfield comparisons as pooled AI-vs-rest results.
+The dashboard must visibly distinguish the partial current publication year,
+label Q2 as a snapshot through citation year 2025, and not describe Q3
+subfield comparisons as pooled AI-vs-rest results.
 
-## 3. Final project closeout
+## 4. Final project closeout
 
 - Run the complete Python, dbt, Dagster, and dashboard verification suite.
 - Verify the deployed dashboard and refresh path end to end.
