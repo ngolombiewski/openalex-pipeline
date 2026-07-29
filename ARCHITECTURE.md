@@ -22,10 +22,10 @@ The two pinned AI-related subfields support question-specific groupings; see
 `DATA_MODEL.md`. Q1 is published for the `ai_strict` and `ai_broad` variants.
 Q2's approved contract is an annual citation-weighted age comparison at
 `citation_year × cited_group`, where the mutually exclusive groups are AI,
-CV/PR, and the rest of CS. It is implemented locally; deployment and prod
-reconciliation are pending. Q3 currently publishes subfield-grain comparisons
-carrying both classification flags; a pooled AI-vs-rest Q3 statistic is not
-yet implemented.
+CV/PR, and the rest of CS. It is deployed and prod-reconciled over citation
+years 2012–2025. Q3 currently publishes subfield-grain comparisons carrying
+both classification flags; a pooled AI-vs-rest Q3 statistic is not yet
+implemented.
 
 ## Data Source
 
@@ -174,7 +174,7 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
   `docs/design-archive/staging-design.md`.
 - **dbt silver / gold** — `dbt/models/`. Archived designs:
   `docs/design-archive/silver-design.md` and
-  `docs/design-archive/gold-design.md`. Proposed Q2 revision:
+  `docs/design-archive/gold-design.md`. Active Q2 contract:
   `docs/gold-revisit-design.md`.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
   Design: `docs/orchestration-design.md`.

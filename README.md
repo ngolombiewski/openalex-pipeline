@@ -2,9 +2,9 @@
 
 > **Status:** the full data path is built and verified — extraction → bronze →
 > GCS → BigQuery → dbt staging → silver → gold. Dagster orchestration is
-> complete. Q2's annual citation-age replacement is implemented and verified
-> locally; dev/prod deployment and reconciliation are pending. Q3's pooled
-> comparison, Streamlit, and closeout remain.
+> complete. Q2's annual citation-age replacement is deployed, prod-reconciled,
+> and operationally validated. Q3's pooled comparison, Streamlit, and closeout
+> remain.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -31,9 +31,7 @@ carrying both classification flags. See [`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## First results
 
-*Validated prod findings for Q1 and the current Q3 subfield view. Q2 results
-will be published only after the approved annual citation-age specification is
-implemented and reconciled.*
+*Validated prod findings for Q1, Q2, and the current Q3 subfield view.*
 
 **Q1 — The share of AI in CS is at an all-time high, but the path is not
 monotone.** AI already held ~31% of CS output in 1980, bottomed near 23%
@@ -42,10 +40,14 @@ around 2012, and has climbed since — ~35% in 2025 and ~40% in the partial
 winters" narrative. (Caveat: OpenAlex assigns topics retroactively with a
 modern taxonomy, which is what makes a 1980 "AI share" well-defined at all.)
 
-**Q2 — Annual citation age, results pending.** The decided replacement will
-measure the citation-weighted median age of cited AI, CV/PR, and rest-of-CS
-works in each year from 2012 through 2025. It is explicitly a full-corpus
-snapshot, not a live current-year metric. See
+**Q2 — Citation attention has shifted toward younger work across CS, with
+CV/PR generally the most recent.** Median citation age falls from 8 to 5 years
+for AI, from 7 to 5 for CV/PR, and from 7 to 5 for the rest of CS between 2012
+and 2025. By 2025, 55.4% of AI citations, 57.2% of CV/PR citations, and 54.3%
+of rest-of-CS citations go to works at most five years old. These are
+citation-weighted ages of cited works, not evidence about what AI-authored
+papers cite or proof of faster intrinsic obsolescence. Q2 is a full-corpus
+snapshot through citation year 2025, not a live current-year metric. See
 [`docs/gold-revisit-design.md`](docs/gold-revisit-design.md).
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
@@ -66,8 +68,8 @@ AI and CV/PR have the *lowest* uncited rates in CS yet the *highest*
 concentration among cited papers: AI papers get cited more often than average,
 but the winnings pool at the top.
 
-**Methodology notes.** Q2 will use OpenAlex's year-resolved citation counts
-(`counts_by_year`) across the full cited-work corpus and classify the cited
+**Methodology notes.** Q2 uses OpenAlex's year-resolved citation counts
+(`counts_by_year`) across the full cited-work corpus and classifies the cited
 work, not the unknown citing work. Q3 uses the age-controlled 2012–2016
 publication cohort so older papers do not mechanically dominate cumulative
 citation totals. Zero-citation papers are included in the headline Gini: the
@@ -123,9 +125,9 @@ across datasets, all rebuilt from the external table in one run:
   `ai_strict`/`ai_broad` flags (pinned subfield ids as vars) plus the
   analytical column set. Row count == staging, asserted.
 - **gold** — question-shaped analytical aggregates. Q1 and the current Q3
-  subfield view are deployed and validated. The approved
-  `gold_citation_age_by_year` Q2 replacement is implemented and verified
-  locally, with deployment pending. Model grains, ranges, classification
+  subfield view are deployed and validated. The
+  `gold_citation_age_by_year` Q2 replacement is also deployed and reconciled
+  over citation years 2012–2025. Model grains, ranges, classification
   partitions, and analytical invariants are pinned as dbt tests.
 
 Costs are engineered, not hoped for: a per-job `maximum_bytes_billed` cap,

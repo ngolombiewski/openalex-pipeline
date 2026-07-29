@@ -1,9 +1,8 @@
 # Gold revisit design — Q2 annual citation age
 
-*Status: reviewed and approved; implemented locally; deployment and prod
-reconciliation pending. This document is the active design for Q2. It
-supersedes only the Q2 contract in `docs/design-archive/gold-design.md`; Q1 and
-Q3 are unchanged.*
+*Status: reviewed, approved, implemented, deployed, and prod-reconciled. This
+document is the active design for Q2. It supersedes only the Q2 contract in
+`docs/design-archive/gold-design.md`; Q1 and Q3 are unchanged.*
 
 ## 1. Decision
 
