@@ -1,10 +1,10 @@
 # Gold Q3 revisit design — citation concentration
 
-*Status: proposed; four review rounds incorporated, awaiting final approval.
-Not implemented. This document is the proposed replacement contract for Q3.
-The deployed Q3 remains the
-cumulative-count subfield Gini described in
-`docs/design-archive/gold-design.md` until this design is approved and built.*
+*Status: approved for implementation; implemented and validated in dev on
+2026-07-31. Prod deployment, reconciliation, analytical validation, and final
+review remain pending. The deployed prod Q3 remains the cumulative-count
+subfield Gini described in `docs/design-archive/gold-design.md` until those
+steps complete.*
 
 ## 1. Decision
 

@@ -1,7 +1,8 @@
 -- Q2 — The Shelf Life: annual citation-weighted age of cited CS works.
 -- Grain: citation_year × cited_group, where cited_group is the mutually
 -- exclusive partition ai / cv_pr / rest_cs. Classification applies to the
--- cited work, not the unknown citing work. See docs/gold-revisit-design.md.
+-- cited work, not the unknown citing work.
+-- See docs/gold-q2-revisit-design.md.
 --
 -- counts_by_year is already annual, so citation ages and weighted quantiles
 -- are discrete integer years. The qth quantile is the smallest age whose

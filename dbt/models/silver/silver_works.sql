@@ -34,8 +34,8 @@ select
                                            '{{ var("subfield_cv_pr") }}'), false) as is_ai_broad,
 
     -- measures for the analytical questions
-    cited_by_count,     -- Q3 (Gini on citation impact)
-    fwci,               -- Q3 alternative impact measure
-    counts_by_year      -- Q2 (annual citation age); kept nested for gold
+    cited_by_count,     -- retained cumulative impact measure
+    fwci,               -- retained field-weighted impact measure
+    counts_by_year      -- Q2 citation age + Q3 fixed windows; kept nested
 
 from {{ ref('stg_works') }}

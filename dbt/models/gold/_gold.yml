@@ -42,7 +42,7 @@ models:
       mutually exclusive AI, CV/PR, and rest-of-CS cited-work groups. One row
       per citation_year × cited_group over the explicit snapshot window.
       Quantiles are discrete integer ages; recency shares are weighted by
-      positive citation events. See docs/gold-revisit-design.md.
+      positive citation events. See docs/gold-q2-revisit-design.md.
     config:
       contract:
         enforced: true
@@ -143,44 +143,231 @@ models:
 
   - name: gold_citation_gini_by_subfield
     description: >
-      Q3 — Gini of cited_by_count per CS subfield over the 2012–2016 cohort,
-      zero-citation papers included in the headline gini; gini_cited_only is
-      the cited-papers-only secondary. Strict/broad AI labels on the row.
-      See docs/design-archive/gold-design.md §4.
+      Q3 primary view — fixed-window citation concentration by CS subfield and
+      publication cohort. citation_age is the cumulative window of complete
+      post-publication calendar years (ages 1..citation_age); age 0 is excluded
+      from the measures and described by the two diagnostic columns. Gini and
+      top-k shares use the full paper cohort, including uncited papers.
+      top1_share/top5_share/top10_share take ceil(k * n_papers) papers, and are
+      tie-invariant because tied boundary papers carry the same citation count.
+      The __unclassified__ bucket preserves papers with no subfield and is for
+      reconciliation, not analytical ranking. See
+      docs/gold-q3-revisit-design.md.
+    config:
+      contract:
+        enforced: true
     tests:
-      # Adding zero-citation papers can only increase concentration, so the
-      # headline gini bounds the cited-only gini from above.
-      - dbt_utils.expression_is_true:
+      - dbt_utils.unique_combination_of_columns:
           arguments:
-            expression: "gini_cited_only <= gini"
+            combination_of_columns:
+              - subfield_id
+              - publication_year
+              - citation_age
     columns:
-      - name: subfield_id
+      - name: publication_year
+        data_type: int64
         tests:
           - not_null
-          - unique
-      - name: n_papers
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "{{ var('gini_cohort_min') }}"
+                max_value: "{{ var('gini_citation_year_max') - 1 }}"
+      - name: subfield_id
+        data_type: string
+        tests:
+          - not_null
+      - name: subfield_display_name
+        data_type: string
+        description: Stable built-population label; falls back to subfield_id.
+        tests:
+          - not_null
+      - name: is_ai_strict
+        data_type: bool
+        description: Row label for the pinned AI subfield; not part of the grain.
+        tests:
+          - not_null
+      - name: is_ai_broad
+        data_type: bool
+        description: Row label for the pinned AI or CV/PR subfields.
+        tests:
+          - not_null
+      - name: citation_age
+        data_type: int64
+        description: Cumulative complete-calendar-year window, ages 1 through this value.
         tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 1
+      - name: n_papers
+        data_type: int64
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: total_citations
+        data_type: int64
+        description: Citations received at ages 1 through citation_age.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: zero_share
+        data_type: float64
+        description: Share of all cohort papers with no ages-1..citation_age citations.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: &ratio_range
+                min_value: 0
+                max_value: 1
       - name: gini
-        description: NULL only for an all-zero-citation subfield (nullif guard).
+        data_type: float64
+        description: Overall fixed-window Gini including zero-citation papers.
         tests:
           - dbt_utils.accepted_range:
-              arguments:
-                min_value: 0
-                max_value: 1
+              arguments: *ratio_range
       - name: gini_cited_only
+        data_type: float64
         description: >
-          Secondary lens — Gini over cited papers only
-          (docs/design-archive/gold-design.md §4c), disentangling concentration
-          from the uncited-rate. NULL for a subfield with no cited papers.
+          Gini over papers with positive fixed-window citations; NULL when no
+          paper is cited.
         tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top1_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top5_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top10_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: age0_citation_share
+        data_type: float64
+        description: Age-0 citations divided by citations at ages 0..citation_age.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: zero_share_including_age0
+        data_type: float64
+        description: Share of papers with no citations at ages 0..citation_age.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+
+  - name: gold_citation_gini_by_group
+    description: >
+      Q3 secondary pooled view — fixed-window citation concentration by the
+      mutually exclusive ai, cv_pr, and rest_cs paper groups. cited_group
+      classifies the paper itself; Q3 has no citing-side population and uncited
+      papers still carry a group. citation_age is the cumulative ages
+      1..citation_age window. Top-k shares use the full cohort and
+      ceil(k * n_papers), with tie-invariant boundary allocation. rest_cs pools
+      heterogeneous subfields, so this relation is not a like-for-like
+      replacement for the primary subfield view. See
+      docs/gold-q3-revisit-design.md.
+    config:
+      contract:
+        enforced: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - cited_group
+              - publication_year
+              - citation_age
+    columns:
+      - name: publication_year
+        data_type: int64
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "{{ var('gini_cohort_min') }}"
+                max_value: "{{ var('gini_citation_year_max') - 1 }}"
+      - name: cited_group
+        data_type: string
+        description: Exclusive paper group; the name does not imply a citing side.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ai', 'cv_pr', 'rest_cs']
+      - name: citation_age
+        data_type: int64
+        description: Cumulative complete-calendar-year window, ages 1 through this value.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: n_papers
+        data_type: int64
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: total_citations
+        data_type: int64
+        tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
-                max_value: 1
+      - name: zero_share
+        data_type: float64
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: gini
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: gini_cited_only
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top1_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top5_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: top10_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: age0_citation_share
+        data_type: float64
+        tests:
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
+      - name: zero_share_including_age0
+        data_type: float64
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: *ratio_range
 
 unit_tests:
   - name: citation_age_weighted_metrics_and_groups
@@ -293,3 +480,434 @@ unit_tests:
             cast(0.0 as float64),
             cast(0.0 as float64),
             cast(0.0 as float64)
+
+  - name: citation_gini_subfield_fixed_window_metrics
+    description: >
+      Pins Q3 subfield preservation, the unclassified bucket, frequency-form
+      Ginis, ceil top-k cutoffs (including exact boundaries), tied cutoffs,
+      cumulative windows, age-0 diagnostics, and undefined all-zero measures.
+    model: gold_citation_gini_by_subfield
+    overrides:
+      vars:
+        gini_cohort_min: 2020
+        gini_citation_year_max: 2023
+    given:
+      - input: ref('silver_works')
+        format: sql
+        rows: |
+          select
+              concat('ceil-101-', cast(i as string)) as id,
+              2020 as publication_year,
+              '{{ var("subfield_ai") }}' as primary_topic_subfield_id,
+              'Artificial Intelligence' as primary_topic_subfield_display_name,
+              true as is_ai_strict,
+              true as is_ai_broad,
+              case
+                  when i = 1 then [
+                      struct(2021 as year, 10 as cited_by_count)
+                  ]
+                  when i in (2, 3) then [
+                      struct(2022 as year, 10 as cited_by_count)
+                  ]
+                  when i = 4 then [
+                      struct(2020 as year, 5 as cited_by_count)
+                  ]
+                  else cast(
+                      [] as array<struct<year int64, cited_by_count int64>>
+                  )
+              end as counts_by_year
+          from unnest(generate_array(1, 101)) as i
+
+          union all
+
+          select
+              concat('exact-100-', cast(i as string)),
+              2020,
+              'sf-100',
+              'SF 100',
+              false,
+              false,
+              if(
+                  i <= 2,
+                  [struct(2021 as year, 10 as cited_by_count)],
+                  cast(
+                      [] as array<struct<year int64, cited_by_count int64>>
+                  )
+              )
+          from unnest(generate_array(1, 100)) as i
+
+          union all
+
+          select
+              concat('exact-20-', cast(i as string)),
+              2020,
+              'sf-20',
+              'SF 20',
+              false,
+              false,
+              if(
+                  i <= 2,
+                  [struct(2021 as year, 10 as cited_by_count)],
+                  cast(
+                      [] as array<struct<year int64, cited_by_count int64>>
+                  )
+              )
+          from unnest(generate_array(1, 20)) as i
+
+          union all
+
+          select
+              concat('exact-10-', cast(i as string)),
+              2020,
+              'sf-10',
+              'SF 10',
+              false,
+              false,
+              if(
+                  i <= 2,
+                  [struct(2021 as year, 10 as cited_by_count)],
+                  cast(
+                      [] as array<struct<year int64, cited_by_count int64>>
+                  )
+              )
+          from unnest(generate_array(1, 10)) as i
+
+          union all
+
+          select
+              'unclassified-age0',
+              2020,
+              cast(null as string),
+              cast(null as string),
+              false,
+              false,
+              [struct(2020 as year, 7 as cited_by_count)]
+
+          union all
+
+          select
+              'all-zero',
+              2020,
+              'sf-zero',
+              cast(null as string),
+              false,
+              false,
+              cast([] as array<struct<year int64, cited_by_count int64>>)
+    expect:
+      format: sql
+      rows: |
+        select
+            2020 as publication_year,
+            '{{ var("subfield_ai") }}' as subfield_id,
+            'Artificial Intelligence' as subfield_display_name,
+            true as is_ai_strict,
+            true as is_ai_broad,
+            1 as citation_age,
+            101 as n_papers,
+            10 as total_citations,
+            cast(100.0 / 101.0 as float64) as zero_share,
+            cast(100.0 / 101.0 as float64) as gini,
+            cast(0.0 as float64) as gini_cited_only,
+            cast(1.0 as float64) as top1_share,
+            cast(1.0 as float64) as top5_share,
+            cast(1.0 as float64) as top10_share,
+            cast(1.0 / 3.0 as float64) as age0_citation_share,
+            cast(99.0 / 101.0 as float64) as zero_share_including_age0
+
+        union all
+
+        select
+            2020,
+            '{{ var("subfield_ai") }}',
+            'Artificial Intelligence',
+            true,
+            true,
+            citation_age,
+            101,
+            30,
+            cast(98.0 / 101.0 as float64),
+            cast(98.0 / 101.0 as float64),
+            cast(0.0 as float64),
+            cast(2.0 / 3.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 / 7.0 as float64),
+            cast(97.0 / 101.0 as float64)
+        from unnest([2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'sf-100',
+            'SF 100',
+            false,
+            false,
+            citation_age,
+            100,
+            20,
+            cast(0.98 as float64),
+            cast(0.98 as float64),
+            cast(0.0 as float64),
+            cast(0.5 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(0.0 as float64),
+            cast(0.98 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'sf-20',
+            'SF 20',
+            false,
+            false,
+            citation_age,
+            20,
+            20,
+            cast(0.9 as float64),
+            cast(0.9 as float64),
+            cast(0.0 as float64),
+            cast(0.5 as float64),
+            cast(0.5 as float64),
+            cast(1.0 as float64),
+            cast(0.0 as float64),
+            cast(0.9 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'sf-10',
+            'SF 10',
+            false,
+            false,
+            citation_age,
+            10,
+            20,
+            cast(0.8 as float64),
+            cast(0.8 as float64),
+            cast(0.0 as float64),
+            cast(0.5 as float64),
+            cast(0.5 as float64),
+            cast(0.5 as float64),
+            cast(0.0 as float64),
+            cast(0.8 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            '__unclassified__',
+            'Unclassified',
+            false,
+            false,
+            citation_age,
+            1,
+            0,
+            cast(1.0 as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(1.0 as float64),
+            cast(0.0 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'sf-zero',
+            'sf-zero',
+            false,
+            false,
+            citation_age,
+            1,
+            0,
+            cast(1.0 as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(1.0 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+  - name: citation_gini_group_fixed_window_metrics
+    description: >
+      Pins Q3's exclusive paper-group classification, zero/cited Gini
+      decomposition, cumulative windows, age-0 exclusion and diagnostics, and
+      null-subfield fallback into rest_cs.
+    model: gold_citation_gini_by_group
+    overrides:
+      vars:
+        gini_cohort_min: 2020
+        gini_citation_year_max: 2023
+    given:
+      - input: ref('silver_works')
+        format: sql
+        rows: |
+          select
+              'ai-age0' as id,
+              2020 as publication_year,
+              '{{ var("subfield_ai") }}' as primary_topic_subfield_id,
+              'Artificial Intelligence' as primary_topic_subfield_display_name,
+              true as is_ai_strict,
+              true as is_ai_broad,
+              [struct(2020 as year, 4 as cited_by_count)] as counts_by_year
+
+          union all
+
+          select
+              'ai-window-high',
+              2020,
+              '{{ var("subfield_ai") }}',
+              'Artificial Intelligence',
+              true,
+              true,
+              [
+                  struct(2021 as year, 3 as cited_by_count),
+                  struct(2022 as year, 2 as cited_by_count)
+              ]
+
+          union all
+
+          select
+              'ai-window-low',
+              2020,
+              '{{ var("subfield_ai") }}',
+              'Artificial Intelligence',
+              true,
+              true,
+              [struct(2021 as year, 1 as cited_by_count)]
+
+          union all
+
+          select
+              'ai-zero',
+              2020,
+              '{{ var("subfield_ai") }}',
+              'Artificial Intelligence',
+              true,
+              true,
+              cast([] as array<struct<year int64, cited_by_count int64>>)
+
+          union all
+
+          select
+              'cv-pr',
+              2020,
+              '{{ var("subfield_cv_pr") }}',
+              'Computer Vision and Pattern Recognition',
+              false,
+              true,
+              [struct(2021 as year, 1 as cited_by_count)]
+
+          union all
+
+          select
+              'rest-null-subfield',
+              2020,
+              cast(null as string),
+              cast(null as string),
+              false,
+              false,
+              [
+                  struct(2020 as year, 3 as cited_by_count),
+                  struct(2022 as year, 1 as cited_by_count)
+              ]
+    expect:
+      format: sql
+      rows: |
+        select
+            2020 as publication_year,
+            'ai' as cited_group,
+            1 as citation_age,
+            4 as n_papers,
+            4 as total_citations,
+            cast(0.5 as float64) as zero_share,
+            cast(0.625 as float64) as gini,
+            cast(0.25 as float64) as gini_cited_only,
+            cast(0.75 as float64) as top1_share,
+            cast(0.75 as float64) as top5_share,
+            cast(0.75 as float64) as top10_share,
+            cast(0.5 as float64) as age0_citation_share,
+            cast(0.25 as float64) as zero_share_including_age0
+
+        union all
+
+        select
+            2020,
+            'ai',
+            citation_age,
+            4,
+            6,
+            cast(0.5 as float64),
+            cast(2.0 / 3.0 as float64),
+            cast(1.0 / 3.0 as float64),
+            cast(5.0 / 6.0 as float64),
+            cast(5.0 / 6.0 as float64),
+            cast(5.0 / 6.0 as float64),
+            cast(0.4 as float64),
+            cast(0.25 as float64)
+        from unnest([2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'cv_pr',
+            citation_age,
+            1,
+            1,
+            cast(0.0 as float64),
+            cast(0.0 as float64),
+            cast(0.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(0.0 as float64),
+            cast(0.0 as float64)
+        from unnest([1, 2, 3]) as citation_age
+
+        union all
+
+        select
+            2020,
+            'rest_cs',
+            1,
+            1,
+            0,
+            cast(1.0 as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(null as float64),
+            cast(1.0 as float64),
+            cast(0.0 as float64)
+
+        union all
+
+        select
+            2020,
+            'rest_cs',
+            citation_age,
+            1,
+            1,
+            cast(0.0 as float64),
+            cast(0.0 as float64),
+            cast(0.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(1.0 as float64),
+            cast(0.75 as float64),
+            cast(0.0 as float64)
+        from unnest([2, 3]) as citation_age

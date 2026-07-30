@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-07-30*
+*Last updated: 2026-07-31*
 
 This file records current repository and deployed-pipeline state. Completed
 implementation history belongs in git and archived design docs, not here.
@@ -59,6 +59,21 @@ Completed baseline designs are archived under `docs/design-archive/`.
 contract. `docs/orchestration-design.md` remains the active orchestration
 contract.
 
+## Implemented, awaiting review and prod deployment
+
+- **dbt gold, Q3 replacement** — the approved fixed-window cohort-series
+  contract in `docs/gold-q3-revisit-design.md` is implemented. The primary
+  `gold_citation_gini_by_subfield` relation is replaced in code at
+  `subfield_id × publication_year × citation_age`; the secondary directly
+  pooled `gold_citation_gini_by_group` relation adds the exclusive
+  `ai` / `cv_pr` / `rest_cs` lens. Both publish overall and cited-only Ginis,
+  zero share, top-1/5/10 shares, and age-0 diagnostics over complete
+  post-publication calendar-year windows. Contracts, deterministic metric
+  fixtures, independent source oracles, and cross-grain invariants are in
+  place. The canonical dev build and test suite pass. Prod still serves the
+  approved cumulative-count Q3 until review and the required prod
+  reconciliation complete.
+
 ## Operational and data snapshot
 
 - The extraction and upload corpus covers 77 publication-year shards
@@ -68,17 +83,24 @@ contract.
   retraction/paratext, null-status, and deduplication rules.
 - Prod dbt has been built successfully and its tests pass. The last recorded
   full staging build billed 43.2 GiB, below the configured 100 GiB per-job cap.
-- The canonical dev slice is 2012–2016, matching the deployed Q3 cohort and
-  forming the exact overlapping-cohort preview for the proposed Q3
-  replacement. It is a structural development target for Q2, not an
-  analytical preview of prod Q2.
-- The latest repository verification is **247 pytest tests passed**, with Ruff,
-  Ruff format, Pyright on the touched Python paths, Dagster definitions
-  validation, and the real instance retry configuration all green.
-- The dbt manifest contains **5 models, 60 data tests, and 1 deterministic unit
-  test**, including `gold_citation_age_by_year` and neither obsolete Q2 model.
-  The canonical dev build and the complete dev/prod test suites pass, with only
-  the expected negative-age Q2 warning.
+- The canonical dev slice is 2012–2016. It now publishes the exact
+  overlapping-cohort preview of the Q3 replacement: **605 subfield rows** and
+  **165 pooled-group rows**, with cohort 2012 reaching citation age 13 and
+  cohort 2016 reaching age 9. It remains a structural development target for
+  Q2, not an analytical preview of prod Q2.
+- The latest Python/Dagster regression verification is **247 pytest tests
+  passed**, including Dagster definitions validation and the real instance
+  retry configuration; Ruff check also passes. No Python was changed for Q3.
+  The repo-wide Ruff format check still identifies 19 pre-existing files and
+  was not applied because they are outside this change.
+- The repository dbt manifest contains **6 models, 110 data tests, and 3
+  deterministic unit tests**. The two Q3 dev models billed 366.8 MiB processed
+  each. Their focused build passed 61 executed checks, and the complete dev
+  suite passed **112 checks with one expected warning** across 110 data tests
+  and 3 unit tests. The shared negative-age warning returned 46,357 dev rows.
+- Q3 display-label preflights found **zero conflicting labels and zero
+  fallbacks** in both dev and prod silver; the built dev output has zero
+  unstable real-subfield labels.
 - Prod Q2 contains exactly **42 rows**: three groups for every citation year
   from 2012 through 2025, with no 2026 row. Citation-event and distinct-work
   totals reconcile exactly to an independent eligible silver aggregation for
@@ -110,13 +132,13 @@ contract.
   2012–2025 from the current full-corpus snapshot. Extending the range requires
   a manual full-corpus refresh; monthly current-year invalidation is not a Q2
   freshness guarantee.
-- **Q3 does not publish pooled AI-vs-rest statistics.** Its output is one row
-  per CS subfield with strict/broad classification flags. Subfield Ginis
-  cannot be pooled downstream; a pooled metric requires a direct paper-level
-  aggregation. The reviewed replacement contract specifies that direct pooled
-  relation but is not implemented.
+- **Prod Q3 does not yet publish pooled AI-vs-rest statistics.** The
+  replacement is implemented and tested in dev, including the directly
+  computed pooled relation, but prod remains on the approved subfield-only
+  cumulative contract pending review and reconciliation.
 - **Q3 source freshness is not automated.** The current-year-only refresh does
-  not update cumulative citation counts on the 2012–2016 publication cohort.
+  not update historical citation windows or classifications. Even after the
+  replacement is deployed, Q3 remains a full-corpus analytical snapshot.
 - **Year rollover is manual.** Advancing the corpus requires coordinated
   updates to extraction bounds and dbt vars.
 
@@ -125,7 +147,7 @@ contract.
 See `PLAN.md`. Q2's implementation, deployment, prod reconciliation,
 analytical inspection, obsolete-relation cleanup, and orchestration validation
 are complete; the deployed result awaits project review. Q3's fixed-window
-cohort-series replacement, including a secondary pooled comparison, is
-specified in `docs/gold-q3-revisit-design.md`; four review rounds are
-incorporated, but implementation still awaits approval. Dashboard design waits
-for final gold contracts.
+cohort-series replacement, including the secondary pooled comparison, is
+implemented and dev-validated. Implementation review, prod deployment, the
+full §9d analytical reconciliation, and post-deployment documentation remain.
+Dashboard design waits for final deployed gold contracts.

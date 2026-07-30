@@ -1,6 +1,6 @@
 -- Source-array corruption is loud. A null year is invalid anywhere; within
--- the configured citation-year slice, counts must be non-null/non-negative and
--- each work may carry at most one entry per year.
+-- the union of Q2 and Q3's active citation-year ranges, counts must be
+-- non-null/non-negative and each work may carry at most one entry per year.
 with entries as (
 
     select
@@ -34,8 +34,14 @@ invalid_entries as (
         cited_by_count
     from entries
     where year between
-            {{ var('citation_age_year_min') }}
-            and {{ var('citation_age_year_max') }}
+            least(
+                {{ var('citation_age_year_min') }},
+                {{ var('gini_cohort_min') }}
+            )
+            and greatest(
+                {{ var('citation_age_year_max') }},
+                {{ var('gini_citation_year_max') }}
+            )
       and (cited_by_count is null or cited_by_count < 0)
 
 ),
@@ -49,8 +55,14 @@ duplicate_entries as (
         cast(null as int64) as cited_by_count
     from entries
     where year between
-            {{ var('citation_age_year_min') }}
-            and {{ var('citation_age_year_max') }}
+            least(
+                {{ var('citation_age_year_min') }},
+                {{ var('gini_cohort_min') }}
+            )
+            and greatest(
+                {{ var('citation_age_year_max') }},
+                {{ var('gini_citation_year_max') }}
+            )
     group by id, year
     having count(*) > 1
 

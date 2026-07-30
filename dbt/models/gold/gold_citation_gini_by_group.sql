@@ -1,16 +1,15 @@
--- Q3 — The Winner's Game, primary subfield comparison.
+-- Q3 — The Winner's Game, secondary pooled comparison.
 --
--- Grain: subfield_id × publication_year × citation_age. Each citation_age is
--- the cumulative fixed window of complete calendar years 1..citation_age
--- following publication. Every paper remains in every observable window,
--- including papers with no citations. The synthetic __unclassified__ bucket
--- preserves the silver denominator but is not a real CS subfield.
+-- Grain: cited_group × publication_year × citation_age, where cited_group
+-- classifies each paper itself as ai / cv_pr / rest_cs. Q3 has no citing-side
+-- population, and uncited papers remain in their group. rest_cs pools many
+-- subfields and therefore is not a like-for-like replacement for the primary
+-- subfield relation.
 --
--- Gini is computed from exact integer value frequencies. Top-k shares take
--- ceil(k * n_papers) from the full cohort (including zeros); allocating the
--- required count from a tied boundary frequency makes the result independent
--- of paper ordering. Age 0 is excluded from the measures and exposed through
--- age0_citation_share and zero_share_including_age0.
+-- citation_age is the cumulative fixed window of complete calendar years
+-- 1..citation_age. Gini uses exact integer value frequencies. Top-k shares
+-- take ceil(k * n_papers) from the full cohort and allocate tied boundary
+-- frequencies without arbitrary paper ordering. Age 0 is diagnostic only.
 -- See docs/gold-q3-revisit-design.md.
 
 with paper_windows as (
@@ -19,10 +18,10 @@ with paper_windows as (
 
 ),
 
-subfield_windows as (
+group_windows as (
 
     select
-        coalesce(primary_topic_subfield_id, '__unclassified__') as subfield_id,
+        cited_group,
         publication_year,
         citation_age,
         window_citations,
@@ -31,31 +30,10 @@ subfield_windows as (
 
 ),
 
-label_mapping as (
-
-    select
-        coalesce(primary_topic_subfield_id, '__unclassified__') as subfield_id,
-        case
-            when primary_topic_subfield_id is null then 'Unclassified'
-            else coalesce(
-                max(primary_topic_subfield_display_name),
-                primary_topic_subfield_id
-            )
-        end as subfield_display_name,
-        logical_or(is_ai_strict) as is_ai_strict,
-        logical_or(is_ai_broad) as is_ai_broad
-    from {{ ref('silver_works') }}
-    where publication_year between
-            {{ var('gini_cohort_min') }}
-            and {{ var('gini_citation_year_max') }} - 1
-    group by primary_topic_subfield_id
-
-),
-
 cell_diagnostics as (
 
     select
-        subfield_id,
+        cited_group,
         publication_year,
         citation_age,
         count(*) as n_papers,
@@ -65,21 +43,21 @@ cell_diagnostics as (
             as zero_papers_including_age0,
         sum(age0_citations) as age0_citations,
         sum(window_citations + age0_citations) as citations_including_age0
-    from subfield_windows
-    group by subfield_id, publication_year, citation_age
+    from group_windows
+    group by cited_group, publication_year, citation_age
 
 ),
 
 value_frequencies as (
 
     select
-        subfield_id,
+        cited_group,
         publication_year,
         citation_age,
         window_citations,
         count(*) as n_papers_at_value
-    from subfield_windows
-    group by subfield_id, publication_year, citation_age, window_citations
+    from group_windows
+    group by cited_group, publication_year, citation_age, window_citations
 
 ),
 
@@ -88,14 +66,14 @@ frequency_ranks as (
     select
         *,
         sum(n_papers_at_value) over (
-            partition by subfield_id, publication_year, citation_age
+            partition by cited_group, publication_year, citation_age
         ) as n_papers,
         sum(window_citations * n_papers_at_value) over (
-            partition by subfield_id, publication_year, citation_age
+            partition by cited_group, publication_year, citation_age
         ) as total_citations,
         coalesce(
             sum(n_papers_at_value) over (
-                partition by subfield_id, publication_year, citation_age
+                partition by cited_group, publication_year, citation_age
                 order by window_citations
                 rows between unbounded preceding and 1 preceding
             ),
@@ -103,7 +81,7 @@ frequency_ranks as (
         ) as papers_below,
         coalesce(
             sum(n_papers_at_value) over (
-                partition by subfield_id, publication_year, citation_age
+                partition by cited_group, publication_year, citation_age
                 order by window_citations desc
                 rows between unbounded preceding and 1 preceding
             ),
@@ -116,7 +94,7 @@ frequency_ranks as (
 headline_metrics as (
 
     select
-        subfield_id,
+        cited_group,
         publication_year,
         citation_age,
         any_value(n_papers) as n_papers,
@@ -148,7 +126,7 @@ headline_metrics as (
             )
         ) as top10_citations
     from frequency_ranks
-    group by subfield_id, publication_year, citation_age
+    group by cited_group, publication_year, citation_age
 
 ),
 
@@ -157,14 +135,14 @@ cited_frequency_ranks as (
     select
         *,
         sum(n_papers_at_value) over (
-            partition by subfield_id, publication_year, citation_age
+            partition by cited_group, publication_year, citation_age
         ) as n_cited_papers,
         sum(window_citations * n_papers_at_value) over (
-            partition by subfield_id, publication_year, citation_age
+            partition by cited_group, publication_year, citation_age
         ) as cited_citations,
         coalesce(
             sum(n_papers_at_value) over (
-                partition by subfield_id, publication_year, citation_age
+                partition by cited_group, publication_year, citation_age
                 order by window_citations
                 rows between unbounded preceding and 1 preceding
             ),
@@ -178,7 +156,7 @@ cited_frequency_ranks as (
 cited_only_metrics as (
 
     select
-        subfield_id,
+        cited_group,
         publication_year,
         citation_age,
         sum(
@@ -194,16 +172,13 @@ cited_only_metrics as (
             0
         ) as gini_cited_only
     from cited_frequency_ranks
-    group by subfield_id, publication_year, citation_age
+    group by cited_group, publication_year, citation_age
 
 )
 
 select
     cell_diagnostics.publication_year,
-    cell_diagnostics.subfield_id,
-    label_mapping.subfield_display_name,
-    label_mapping.is_ai_strict,
-    label_mapping.is_ai_broad,
+    cell_diagnostics.cited_group,
     cell_diagnostics.citation_age,
     cell_diagnostics.n_papers,
     cell_diagnostics.total_citations,
@@ -226,8 +201,6 @@ select
         / cell_diagnostics.n_papers as zero_share_including_age0
 from cell_diagnostics
 inner join headline_metrics
-    using (subfield_id, publication_year, citation_age)
+    using (cited_group, publication_year, citation_age)
 left join cited_only_metrics
-    using (subfield_id, publication_year, citation_age)
-inner join label_mapping
-    using (subfield_id)
+    using (cited_group, publication_year, citation_age)

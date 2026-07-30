@@ -1,12 +1,12 @@
 # PLAN.md — Remaining project work
 
-*Updated: 2026-07-30*
+*Updated: 2026-07-31*
 
 Extraction, bronze, upload, Terraform, dbt staging/silver/gold, and Dagster
-orchestration are implemented. Q1, Q3, and orchestration are reviewed and
-approved. Q2's replacement is implemented, deployed, prod-reconciled, and
-operationally validated. Historical plans and review findings live in git
-history; this file contains only work still ahead.
+orchestration are implemented. Q1, the deployed Q3 baseline, and orchestration
+are reviewed and approved. Q2's replacement is implemented, deployed,
+prod-reconciled, and operationally validated. Historical plans and review
+findings live in git history; this file contains only work still ahead.
 
 The project workflow remains: discuss the design, pin contracts, write tests,
 implement, then review. Do not begin implementation until Nils gives the
@@ -29,13 +29,14 @@ Remaining: Nils reviews the deployed result.
 
 Do not edit the archived gold design.
 
-## 2. Decide the remaining Q3 contract
+## 2. Review and deploy the Q3 replacement
 
-The design has incorporated four review rounds and is **awaiting final
-approval**:
-`docs/gold-q3-revisit-design.md`. The deployed Q3 — cumulative-count subfield
-Ginis over the 2012–2016 cohort — remains in place until that design is
-approved and built.
+The four-round design in `docs/gold-q3-revisit-design.md` is approved for
+implementation. Its contracts, two final models, shared paper-window
+expansion, deterministic unit fixtures, and singular invariant suite are
+implemented and validated on the canonical dev slice. The deployed prod Q3 —
+cumulative-count subfield Ginis over the 2012–2016 cohort — remains in place
+until review and prod deployment complete.
 
 Decided during design:
 
@@ -80,8 +81,21 @@ The latest complete citation year is also the least settled in the snapshot.
 The contract retains 2025 but requires a terminal-edge diagnostic and a
 presentation caveat; the diagnostic does not identify settling bias.
 
-Approve the Q3 design before any implementation. Contracts and tests come
-first.
+The canonical dev build publishes the complete lifecycle for cohorts
+2012–2016: 605 subfield rows and 165 pooled-group rows. Both model builds, all
+Q3 generic and singular tests, and the complete dev dbt suite pass; the
+expected shared negative-age warning remains. Dev and prod label preflights
+both report zero conflicts and zero fallbacks.
+
+Remaining:
+
+1. Nils reviews the implementation and dev result.
+2. Build both relations in prod and run the full §9d reconciliation, including
+   age-0 sensitivity, terminal-edge, dev/prod overlap, analytical-position,
+   and per-job cost evidence.
+3. Validate the fresh Dagster manifest and warehouse staleness preflight.
+4. Reconcile ARCHITECTURE, DATA_MODEL, STATE, PLAN, and README with the
+   deployed result only after prod validation and approval.
 
 ## 3. Streamlit dashboard — not designed
 
