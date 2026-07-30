@@ -126,6 +126,6 @@ See `PLAN.md`. Q2's implementation, deployment, prod reconciliation,
 analytical inspection, obsolete-relation cleanup, and orchestration validation
 are complete; the deployed result awaits project review. Q3's fixed-window
 cohort-series replacement, including a secondary pooled comparison, is
-specified in `docs/gold-q3-revisit-design.md`; three review rounds are
+specified in `docs/gold-q3-revisit-design.md`; four review rounds are
 incorporated, but implementation still awaits approval. Dashboard design waits
 for final gold contracts.

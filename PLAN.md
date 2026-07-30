@@ -31,7 +31,7 @@ Do not edit the archived gold design.
 
 ## 2. Decide the remaining Q3 contract
 
-The design has incorporated three review rounds and is **awaiting final
+The design has incorporated four review rounds and is **awaiting final
 approval**:
 `docs/gold-q3-revisit-design.md`. The deployed Q3 — cumulative-count subfield
 Ginis over the 2012–2016 cohort — remains in place until that design is
