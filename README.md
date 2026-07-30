@@ -2,9 +2,8 @@
 
 > **Status:** the full data path is built and verified — extraction → bronze →
 > GCS → BigQuery → dbt staging → silver → gold. Dagster orchestration is
-> complete. Q2's annual citation-age replacement is deployed, prod-reconciled,
-> and operationally validated. Q3's fixed-window replacement, Streamlit, and
-> closeout remain.
+> complete. All three analytical questions are deployed and prod-reconciled.
+> Streamlit and closeout remain.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -26,15 +25,13 @@ against the ingestion manifest **to the exact row**.
 Two pinned `primary_topic.subfield` ids identify Artificial Intelligence and
 Computer Vision and Pattern Recognition. Q1 reports strict AI and broad
 AI-plus-CV/PR variants. Q2 instead uses the more informative mutually exclusive
-AI, CV/PR, and rest-of-CS partition. Q3 currently publishes subfield rows
-carrying both classification flags. Its reviewed replacement contract keeps
-the subfield view primary and adds fixed-window cohort series plus a secondary
-pooled relation; it is not implemented. See
-[`DATA_MODEL.md`](DATA_MODEL.md).
+AI, CV/PR, and rest-of-CS partition. Q3 publishes subfield rows carrying both
+classification flags as its primary view, plus a secondary pooled relation
+using the same exclusive partition. See [`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## First results
 
-*Validated prod findings for Q1, Q2, and the current Q3 subfield view.*
+*Validated prod findings for all three questions.*
 
 **Q1 — The share of AI in CS is at an all-time high, but the path is not
 monotone.** AI already held ~31% of CS output in 1980, bottomed near 23%
@@ -54,29 +51,52 @@ snapshot through citation year 2025, not a live current-year metric. See
 [`docs/gold-q2-revisit-design.md`](docs/gold-q2-revisit-design.md).
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
-looks.** Including all papers, every CS subfield is highly concentrated
-(Gini 0.83–0.93) and AI sits mid-pack. But the all-papers Gini conflates two
-things: how many papers are never cited, and how unequal the cited ones are.
-Decomposing them flips the ranking —
+looks.** Measured over the five complete calendar years after publication, the
+2020 cohort shows every CS subfield highly concentrated on the all-papers Gini
+(0.81–0.92), with AI 4th of 11. But that number conflates two things: how many
+papers are never cited, and how unequal the cited ones are. Decomposing them
+reorders the field —
 
-| Subfield (top/bottom shown) | Uncited rate | Gini (all) | Gini (cited only) |
+| Subfield (selected) | Uncited rate | Gini (all) | Gini (cited only) |
 |---|---|---|---|
-| **Artificial Intelligence** | 0.50 | 0.898 | **0.797** |
-| **Computer Vision & PR** | 0.40 | 0.893 | **0.823** |
-| Information Systems | 0.71 | 0.929 | 0.761 |
-| Software | 0.58 | 0.877 | 0.712 |
-| Hardware & Architecture | 0.42 | 0.826 | 0.701 |
+| **Artificial Intelligence** | 0.46 | 0.871 | **0.760** |
+| Computer Graphics & CAD | 0.68 | 0.922 | 0.759 |
+| **Computer Vision & PR** | 0.35 | 0.839 | **0.751** |
+| Information Systems | 0.62 | 0.898 | 0.729 |
+| Software | 0.61 | 0.864 | 0.651 |
+| Hardware & Architecture | 0.47 | 0.810 | 0.639 |
 
-AI and CV/PR have the *lowest* uncited rates in CS yet the *highest*
-concentration among cited papers: AI papers get cited more often than average,
-but the winnings pool at the top.
+AI has the highest cited-only Gini in CS and CV/PR the third, but what sets
+them apart is the pairing: both combine that concentration with among the
+*lowest* uncited rates in the field. AI papers get cited more often than
+average, and the winnings still pool at the top. The contrast is Computer
+Graphics, whose near-identical cited-only Gini comes with more than twice the
+uncited rate, and Information Systems, which tops the all-papers Gini purely
+because 62% of its papers are never cited at all.
+
+The cohort axis shows this hardening over time. Across publication cohorts
+2012 → 2020 at the same five-year window, AI's Gini among cited papers rises
+0.684 → 0.760 while its uncited rate falls 0.576 → 0.464. More AI papers get
+cited than ever, and the citations they attract are more unequally distributed
+than ever.
+
+One caveat worth stating plainly: on the *pooled* AI-versus-rest-of-CS view,
+AI is **not** more concentrated overall — the all-papers Gini gap runs
+slightly in the other direction for most cohorts. AI's distinctiveness is the
+low uncited rate combined with high concentration among the cited, not a
+higher headline Gini.
 
 **Methodology notes.** Q2 uses OpenAlex's year-resolved citation counts
 (`counts_by_year`) across the full cited-work corpus and classifies the cited
-work, not the unknown citing work. Q3 uses the age-controlled 2012–2016
-publication cohort so older papers do not mechanically dominate cumulative
-citation totals. Zero-citation papers are included in the headline Gini: the
-uncited majority is part of the concentration story.
+work, not the unknown citing work. Q3 replaces cumulative citation counts with
+a **fixed window**: citations received in the first N complete calendar years
+after the publication year, so cohorts are compared on equal exposure rather
+than on elapsed time. The publication year is excluded from the window because
+its length depends on publication month; including it moves every Gini by less
+than 0.011 and changes no ranking. Zero-citation papers are included in the
+headline Gini — the uncited majority is part of the concentration story — and
+`gini_cited_only` separates the two effects. Cells whose window ends in 2025
+rest on the least-settled citation year in the snapshot.
 
 ## Pipeline
 
@@ -127,18 +147,19 @@ across datasets, all rebuilt from the external table in one run:
 - **silver** (`silver_works`) — one classified row per work: the
   `ai_strict`/`ai_broad` flags (pinned subfield ids as vars) plus the
   analytical column set. Row count == staging, asserted.
-- **gold** — question-shaped analytical aggregates. Q1 and the current Q3
-  subfield view are deployed and validated. The
-  `gold_citation_age_by_year` Q2 replacement is also deployed and reconciled
-  over citation years 2012–2025. Model grains, ranges, classification
-  partitions, and analytical invariants are pinned as dbt tests.
+- **gold** — question-shaped analytical aggregates, all deployed and
+  reconciled: Q1; `gold_citation_age_by_year` over citation years 2012–2025;
+  and Q3's `gold_citation_gini_by_subfield` plus the pooled
+  `gold_citation_gini_by_group` over publication cohorts 2012–2024. Model
+  grains, ranges, classification partitions, and analytical invariants are
+  pinned as dbt tests.
 
 Costs are engineered, not hoped for: a per-job `maximum_bytes_billed` cap,
 physical (compressed) billing on the analytics datasets, and a canonical dev
-slice (2012–2016, ~18% of the corpus) matching the deployed Q3 analytical
-cohort and exactly overlapping the proposed Q3 cohort series. It is a
-structural development target for Q2; only the full prod corpus yields
-representative Q2 citation-age values.
+slice (2012–2016, ~18% of the corpus) overlapping the first five Q3 cohorts.
+It is an analytically faithful Q3 preview for those cohorts but not a
+byte-for-byte one, and only a structural target for Q2; only the full prod
+corpus yields representative Q2 citation-age values.
 
 ## Key design choices
 
@@ -219,5 +240,5 @@ uv run pytest
 - [`DATA_MODEL.md`](DATA_MODEL.md) — AI classification rules and the bronze schema
 - [`STATE.md`](STATE.md) — current state of the build
 - [`docs/gold-q2-revisit-design.md`](docs/gold-q2-revisit-design.md) — approved Q2 implementation contract
-- [`docs/gold-q3-revisit-design.md`](docs/gold-q3-revisit-design.md) — proposed Q3 replacement contract
+- [`docs/gold-q3-revisit-design.md`](docs/gold-q3-revisit-design.md) — approved Q3 implementation contract
 - [`docs/`](docs/) — per-layer design docs

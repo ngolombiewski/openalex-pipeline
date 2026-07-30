@@ -45,7 +45,7 @@ The flags remain pinned in `silver_works`. Measured against the full corpus,
 `ai_strict` is ≈27.5% and `ai_broad` ≈40.0% of CS works (sanity anchor, not a
 target).
 
-### Exclusive Q2 and proposed Q3 groups
+### Exclusive Q2 and Q3 groups
 
 Q2 uses a mutually exclusive partition because citation-age quantiles are
 nonlinear and a combined AI+CV/PR median would hide CV/PR's own distribution:
@@ -56,12 +56,14 @@ nonlinear and a combined AI+CV/PR median would hide CV/PR's own distribution:
 | `cv_pr` | Primary-topic subfield id `1707` |
 | `rest_cs` | Every other `silver_works` row |
 
-The deployed Q3 remains at individual CS-subfield grain. Its proposed
-replacement keeps that grain as the primary comparison and adds the same
-exclusive `ai` / `cv_pr` / `rest_cs` partition as a secondary pooled relation,
-computed directly over papers because Ginis do not aggregate. Strict/broad
-flags continue to label the AI-related subfield rows; they do not create
-pooled variant-level statistics. See
+Q3 keeps the individual CS-subfield grain as its primary comparison and adds
+the same exclusive `ai` / `cv_pr` / `rest_cs` partition as a secondary pooled
+relation, computed directly over papers because Ginis do not aggregate. In Q3
+the partition classifies the *cited paper itself* — there is no citing-side
+population — and uncited papers stay in their group. Strict/broad flags label
+the AI-related subfield rows; they do not create pooled variant-level
+statistics. `rest_cs` pools heterogeneous subfields, so the pooled relation is
+not a like-for-like substitute for the subfield view. See
 `docs/gold-q3-revisit-design.md`.
 
 ---

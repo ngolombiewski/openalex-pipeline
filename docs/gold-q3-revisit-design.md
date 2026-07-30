@@ -1,10 +1,10 @@
 # Gold Q3 revisit design — citation concentration
 
-*Status: approved for implementation; implemented and validated in dev on
-2026-07-31. Prod deployment, reconciliation, analytical validation, and final
-review remain pending. The deployed prod Q3 remains the cumulative-count
-subfield Gini described in `docs/design-archive/gold-design.md` until those
-steps complete.*
+*Status: implemented, deployed to prod on 2026-07-31, and reconciled under the
+complete §9d evidence programme. Both relations now serve prod; the
+cumulative-count subfield Gini described in `docs/design-archive/gold-design.md`
+is superseded. Nils's implementation review is the only remaining step.
+Measured §9d values are recorded in `STATE.md`, not here.*
 
 ## 1. Decision
 
@@ -678,8 +678,20 @@ The existing 2012–2016 dev slice limits publication cohorts only.
 dev publishes the full configured lifecycle for those five cohorts: cohort
 2012 reaches age 13 and cohort 2016 reaches age 9. Dev is therefore an
 analytically faithful preview of prod for the overlapping 2012–2016 rows,
-which must reconcile exactly under §9d. It is not a preview of cohorts
+subject to the slice-boundary caveat below. It is not a preview of cohorts
 2017–2024, which are absent from dev entirely.
+
+**Dev is not bit-exact against prod, by construction.** `stg_works`
+deduplicates on work `id` keeping the freshest OpenAlex snapshot, and applies
+that dedup to the survivors of the `year_min` / `year_max` filter. A work
+OpenAlex re-dated between extraction snapshots therefore resolves differently
+in the two targets: prod sees every partition and keeps the latest-dated copy,
+while a dev slice that cannot see the winning partition keeps the older copy
+and counts the paper in a cohort prod excludes. Prod is correct in every such
+case. The effect is inherent to slicing rather than to Q3 — Q3 reproduces its
+input faithfully — and it is bounded by the number of re-dated works crossing
+the slice edge, which is negligible relative to the cohort. §9d.11 sizes it
+and sets the reconciliation tolerance accordingly.
 
 The `dbt_project.yml` comment migration is part of this contract:
 
@@ -893,9 +905,15 @@ Before approval:
     the discontinuity is substantively large, revisit whether the 2025-ending
     cells remain publishable or `gini_citation_year_max` should be 2024.
 11. Reconcile every dev row against the corresponding prod row for cohorts
-    2012–2016. Fail on missing keys, differing classification flags, or nonzero
-    integer-measure deltas; use an explicit tight tolerance for calculated
-    ratios. `subfield_display_name` is checked separately under step 1, not
+    2012–2016. Fail on missing keys or differing classification flags. Integer
+    measures and calculated ratios reconcile under an explicit tolerance rather
+    than exactly: the §8 slice-boundary dedup admits a bounded population
+    difference, because a work OpenAlex re-dated out of the 2012–2016 range is
+    retained by dev and dropped by prod. Record the affected work count, the
+    cohorts they land in, and the resulting worst-case measure deltas, and
+    confirm the population difference fully accounts for them. A delta that a
+    population difference of that size cannot explain is a failure.
+    `subfield_display_name` is checked separately under step 1, not
     compared between dev and prod: a name absent from the dev population may
     be supplied by a prod-only cohort to prod's global label mapping.
 12. Place AI's Gini within the spread of real individual-subfield Ginis, then

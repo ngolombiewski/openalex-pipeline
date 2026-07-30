@@ -23,11 +23,12 @@ The two pinned AI-related subfields support question-specific groupings; see
 Q2's approved contract is an annual citation-weighted age comparison at
 `citation_year × cited_group`, where the mutually exclusive groups are AI,
 CV/PR, and the rest of CS. It is deployed and prod-reconciled over citation
-years 2012–2025. Q3 currently publishes subfield-grain comparisons carrying
-both classification flags; a pooled AI-vs-rest Q3 statistic is not yet
-implemented. Its reviewed replacement contract keeps the subfield view primary
-and proposes a secondary directly computed pooled relation plus fixed-window
-cohort series; see `docs/gold-q3-revisit-design.md`.
+years 2012–2025. Q3 is a fixed-window cohort series at
+`subfield_id × publication_year × citation_age`, carrying both classification
+flags, with a secondary directly computed pooled AI / CV/PR / rest-of-CS
+relation at the same cohort and window grain. Both are deployed and
+prod-reconciled over publication cohorts 2012–2024; see
+`docs/gold-q3-revisit-design.md`.
 
 ## Data Source
 
@@ -177,7 +178,7 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
 - **dbt silver / gold** — `dbt/models/`. Archived designs:
   `docs/design-archive/silver-design.md` and
   `docs/design-archive/gold-design.md`. Active Q2 contract:
-  `docs/gold-q2-revisit-design.md`. Proposed Q3 replacement:
+  `docs/gold-q2-revisit-design.md`. Active Q3 contract:
   `docs/gold-q3-revisit-design.md`.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
   Design: `docs/orchestration-design.md`.

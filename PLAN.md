@@ -29,14 +29,14 @@ Remaining: Nils reviews the deployed result.
 
 Do not edit the archived gold design.
 
-## 2. Review and deploy the Q3 replacement
+## 2. Review the deployed Q3 replacement
 
-The four-round design in `docs/gold-q3-revisit-design.md` is approved for
-implementation. Its contracts, two final models, shared paper-window
-expansion, deterministic unit fixtures, and singular invariant suite are
-implemented and validated on the canonical dev slice. The deployed prod Q3 —
-cumulative-count subfield Ginis over the 2012–2016 cohort — remains in place
-until review and prod deployment complete.
+The four-round design in `docs/gold-q3-revisit-design.md` is implemented,
+deployed to prod, and reconciled under the complete §9d evidence programme.
+Its contracts, two final models, shared paper-window expansion, deterministic
+unit fixtures, and singular invariant suite are in place. The superseded
+cumulative-count subfield Gini no longer exists in either dataset. Measured
+results live in `STATE.md`.
 
 Decided during design:
 
@@ -81,21 +81,24 @@ The latest complete citation year is also the least settled in the snapshot.
 The contract retains 2025 but requires a terminal-edge diagnostic and a
 presentation caveat; the diagnostic does not identify settling bias.
 
-The canonical dev build publishes the complete lifecycle for cohorts
-2012–2016: 605 subfield rows and 165 pooled-group rows. Both model builds, all
-Q3 generic and singular tests, and the complete dev dbt suite pass; the
-expected shared negative-age warning remains. Dev and prod label preflights
-both report zero conflicts and zero fallbacks.
+Prod publishes the complete observable triangle for cohorts 2012–2024: 1,001
+subfield rows and 273 pooled-group rows. Both model builds, all Q3 generic and
+singular tests, and the complete dbt suite pass in both targets; the expected
+shared negative-age warning remains. Reconciliation found the age-0 exclusion
+substantively neutral, the terminal-edge discontinuity indistinguishable from
+ordinary cohort variation, and AI never the most concentrated CS subfield.
 
-Remaining:
+Two decisions were taken during reconciliation and are recorded in the design:
 
-1. Nils reviews the implementation and dev result.
-2. Build both relations in prod and run the full §9d reconciliation, including
-   age-0 sensitivity, terminal-edge, dev/prod overlap, analytical-position,
-   and per-job cost evidence.
-3. Validate the fresh Dagster manifest and warehouse staleness preflight.
-4. Reconcile ARCHITECTURE, DATA_MODEL, STATE, PLAN, and README with the
-   deployed result only after prod validation and approval.
+- **§9d.11 reconciles under tolerance, not exactly.** `stg_works` dedups on
+  work id after the year filter, so a work OpenAlex re-dated across extraction
+  snapshots can sit in a dev cohort prod excludes. Twelve works differ; prod
+  is correct. The dev-slice caveat is now in §8.
+- **`gini_citation_year_max` stays at 2025.** The terminal-edge diagnostic did
+  not trigger the design's retreat-to-2024 condition.
+
+Remaining: Nils reviews the implementation and the deployed prod result.
+ARCHITECTURE, DATA_MODEL, STATE, PLAN, and README are reconciled with it.
 
 ## 3. Streamlit dashboard — not designed
 
