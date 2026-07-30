@@ -3,8 +3,8 @@
 > **Status:** the full data path is built and verified — extraction → bronze →
 > GCS → BigQuery → dbt staging → silver → gold. Dagster orchestration is
 > complete. Q2's annual citation-age replacement is deployed, prod-reconciled,
-> and operationally validated. Q3's pooled comparison, Streamlit, and closeout
-> remain.
+> and operationally validated. Q3's fixed-window replacement, Streamlit, and
+> closeout remain.
 
 An end-to-end batch data pipeline over the [OpenAlex](https://openalex.org/)
 corpus, built to ask how AI has reshaped Computer Science research.
@@ -27,7 +27,10 @@ Two pinned `primary_topic.subfield` ids identify Artificial Intelligence and
 Computer Vision and Pattern Recognition. Q1 reports strict AI and broad
 AI-plus-CV/PR variants. Q2 instead uses the more informative mutually exclusive
 AI, CV/PR, and rest-of-CS partition. Q3 currently publishes subfield rows
-carrying both classification flags. See [`DATA_MODEL.md`](DATA_MODEL.md).
+carrying both classification flags. Its reviewed replacement contract keeps
+the subfield view primary and adds fixed-window cohort series plus a secondary
+pooled relation; it is not implemented. See
+[`DATA_MODEL.md`](DATA_MODEL.md).
 
 ## First results
 
@@ -48,7 +51,7 @@ of rest-of-CS citations go to works at most five years old. These are
 citation-weighted ages of cited works, not evidence about what AI-authored
 papers cite or proof of faster intrinsic obsolescence. Q2 is a full-corpus
 snapshot through citation year 2025, not a live current-year metric. See
-[`docs/gold-revisit-design.md`](docs/gold-revisit-design.md).
+[`docs/gold-q2-revisit-design.md`](docs/gold-q2-revisit-design.md).
 
 **Q3 — Citation impact in AI is a winner's game, and more so than it first
 looks.** Including all papers, every CS subfield is highly concentrated
@@ -132,8 +135,9 @@ across datasets, all rebuilt from the external table in one run:
 
 Costs are engineered, not hoped for: a per-job `maximum_bytes_billed` cap,
 physical (compressed) billing on the analytics datasets, and a canonical dev
-slice (2012–2016, ~18% of the corpus) matching the Q3 analytical cohort. It is
-a structural development target for Q2; only the full prod corpus yields
+slice (2012–2016, ~18% of the corpus) matching the deployed Q3 analytical
+cohort and exactly overlapping the proposed Q3 cohort series. It is a
+structural development target for Q2; only the full prod corpus yields
 representative Q2 citation-age values.
 
 ## Key design choices
@@ -214,5 +218,6 @@ uv run pytest
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — project overview, layer contracts, boundaries
 - [`DATA_MODEL.md`](DATA_MODEL.md) — AI classification rules and the bronze schema
 - [`STATE.md`](STATE.md) — current state of the build
-- [`docs/gold-revisit-design.md`](docs/gold-revisit-design.md) — approved Q2 implementation contract
+- [`docs/gold-q2-revisit-design.md`](docs/gold-q2-revisit-design.md) — approved Q2 implementation contract
+- [`docs/gold-q3-revisit-design.md`](docs/gold-q3-revisit-design.md) — proposed Q3 replacement contract
 - [`docs/`](docs/) — per-layer design docs

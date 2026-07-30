@@ -25,7 +25,9 @@ Q2's approved contract is an annual citation-weighted age comparison at
 CV/PR, and the rest of CS. It is deployed and prod-reconciled over citation
 years 2012–2025. Q3 currently publishes subfield-grain comparisons carrying
 both classification flags; a pooled AI-vs-rest Q3 statistic is not yet
-implemented.
+implemented. Its reviewed replacement contract keeps the subfield view primary
+and proposes a secondary directly computed pooled relation plus fixed-window
+cohort series; see `docs/gold-q3-revisit-design.md`.
 
 ## Data Source
 
@@ -71,7 +73,7 @@ Q2 is deliberately a full-corpus analytical snapshot through citation year
 2025. Citation histories live on cited works across every publication shard,
 so the current-year-only automation cannot extend Q2 honestly. Advancing its
 explicit citation-year bound requires a manual full-corpus refresh; see
-`docs/gold-revisit-design.md`.
+`docs/gold-q2-revisit-design.md`.
 
 ### Layer contracts
 
@@ -175,6 +177,7 @@ moves its Parquet to GCS, the handoff point between the Python pipeline and dbt.
 - **dbt silver / gold** — `dbt/models/`. Archived designs:
   `docs/design-archive/silver-design.md` and
   `docs/design-archive/gold-design.md`. Active Q2 contract:
-  `docs/gold-revisit-design.md`.
+  `docs/gold-q2-revisit-design.md`. Proposed Q3 replacement:
+  `docs/gold-q3-revisit-design.md`.
 - **Orchestration** — `src/openalex_pipeline/orchestration/` (Dagster).
   Design: `docs/orchestration-design.md`.

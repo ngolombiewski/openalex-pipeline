@@ -1,6 +1,6 @@
 # STATE.md
 
-*Last updated: 2026-07-29*
+*Last updated: 2026-07-30*
 
 This file records current repository and deployed-pipeline state. Completed
 implementation history belongs in git and archived design docs, not here.
@@ -55,7 +55,7 @@ project review.
   approved.
 
 Completed baseline designs are archived under `docs/design-archive/`.
-`docs/gold-revisit-design.md` is the reviewed and approved Q2 implementation
+`docs/gold-q2-revisit-design.md` is the reviewed and approved Q2 implementation
 contract. `docs/orchestration-design.md` remains the active orchestration
 contract.
 
@@ -68,8 +68,10 @@ contract.
   retraction/paratext, null-status, and deduplication rules.
 - Prod dbt has been built successfully and its tests pass. The last recorded
   full staging build billed 43.2 GiB, below the configured 100 GiB per-job cap.
-- The canonical dev slice is 2012–2016, matching the Q3 cohort. It is a
-  structural development target for Q2, not an analytical preview of prod Q2.
+- The canonical dev slice is 2012–2016, matching the deployed Q3 cohort and
+  forming the exact overlapping-cohort preview for the proposed Q3
+  replacement. It is a structural development target for Q2, not an
+  analytical preview of prod Q2.
 - The latest repository verification is **247 pytest tests passed**, with Ruff,
   Ruff format, Pyright on the touched Python paths, Dagster definitions
   validation, and the real instance retry configuration all green.
@@ -111,7 +113,8 @@ contract.
 - **Q3 does not publish pooled AI-vs-rest statistics.** Its output is one row
   per CS subfield with strict/broad classification flags. Subfield Ginis
   cannot be pooled downstream; a pooled metric requires a direct paper-level
-  aggregation.
+  aggregation. The reviewed replacement contract specifies that direct pooled
+  relation but is not implemented.
 - **Q3 source freshness is not automated.** The current-year-only refresh does
   not update cumulative citation counts on the 2012–2016 publication cohort.
 - **Year rollover is manual.** Advancing the corpus requires coordinated
@@ -121,5 +124,8 @@ contract.
 
 See `PLAN.md`. Q2's implementation, deployment, prod reconciliation,
 analytical inspection, obsolete-relation cleanup, and orchestration validation
-are complete; the deployed result awaits project review. Q3's pooled comparison
-remains a separate decision. Dashboard design waits for final gold contracts.
+are complete; the deployed result awaits project review. Q3's fixed-window
+cohort-series replacement, including a secondary pooled comparison, is
+specified in `docs/gold-q3-revisit-design.md`; three review rounds are
+incorporated, but implementation still awaits approval. Dashboard design waits
+for final gold contracts.
