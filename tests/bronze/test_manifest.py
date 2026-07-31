@@ -77,9 +77,19 @@ def test_pending_row_has_nulls(extract_root, bronze_root):
     row = manifest_row(build_manifest(extract_root, bronze_root, [2002]), 2002)
 
     assert row["status"] == "pending"
-    for column in ("bronze_row_count", "duplicate_id_count", "bronze_file_path", "ingested_at"):
+    for column in (
+        "bronze_row_count",
+        "duplicate_id_count",
+        "bronze_file_path",
+        "ingested_at",
+    ):
         assert row[column] is None
-    for column in ("query", "expected_count", "records_fetched", "extraction_completed_at"):
+    for column in (
+        "query",
+        "expected_count",
+        "records_fetched",
+        "extraction_completed_at",
+    ):
         assert row[column] is None
 
 
@@ -107,12 +117,16 @@ def test_count_mismatch_forwarded_verbatim(extract_root, bronze_root):
     assert row["count_mismatch"] is True
 
 
-def test_bronze_row_count_equals_records_fetched_when_ingested(extract_root, bronze_root):
+def test_bronze_row_count_equals_records_fetched_when_ingested(
+    extract_root, bronze_root
+):
     # M6: the divergence case is a loud IntegrityError at ingestion (test_core
     # C20), and build_manifest re-asserts the same invariant on every rebuild
     # (test_stale_parquet_raises_integrity_error below), so any built manifest
     # necessarily has bronze_row_count == records_fetched.
-    make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record("W2")])
+    make_extract_year(
+        extract_root, 2002, records=[make_record("W1"), make_record("W2")]
+    )
     ingest_year(extract_root, bronze_root, 2002)
 
     row = manifest_row(build_manifest(extract_root, bronze_root, [2002]), 2002)
@@ -123,7 +137,9 @@ def test_stale_parquet_raises_integrity_error(extract_root, bronze_root):
     # The write-time count invariant, re-asserted at rebuild: re-extracting a
     # year after it was ingested leaves a stale parquet behind an updated
     # report, and the manifest refuses to paper over it.
-    make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record("W2")])
+    make_extract_year(
+        extract_root, 2002, records=[make_record("W1"), make_record("W2")]
+    )
     ingest_year(extract_root, bronze_root, 2002)
 
     # Re-extraction changed the corpus: the report now claims three records,
@@ -155,7 +171,11 @@ def test_ingested_at_derives_from_parquet_mtime(extract_root, bronze_root):
     ingested_at = row["ingested_at"]
     assert ingested_at is not None
     # The value, whatever its dtype, must round to the pinned epoch second.
-    epoch_seconds = ingested_at.timestamp() if hasattr(ingested_at, "timestamp") else float(ingested_at)
+    epoch_seconds = (
+        ingested_at.timestamp()
+        if hasattr(ingested_at, "timestamp")
+        else float(ingested_at)
+    )
     assert int(epoch_seconds) == past
 
 

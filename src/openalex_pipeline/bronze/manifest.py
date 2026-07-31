@@ -38,7 +38,9 @@ MANIFEST_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
 derived from the Parquet's mtime."""
 
 
-def build_manifest(extract_root: Path, bronze_root: Path, years: list[int]) -> pl.DataFrame:
+def build_manifest(
+    extract_root: Path, bronze_root: Path, years: list[int]
+) -> pl.DataFrame:
     """Build the manifest DataFrame: one row per year in `years`.
 
     The manifest is derived and never authoritative: it is rebuilt wholesale
@@ -72,6 +74,7 @@ def write_manifest(bronze_root: Path, manifest: pl.DataFrame) -> Path:
 
 # --- Internal ---------------------------------------------------------------
 
+
 def _assert_counts_consistent(rows: list[dict[str, Any]]) -> None:
     stale = [
         row
@@ -93,7 +96,11 @@ def _year_row(extract_root: Path, bronze_root: Path, year: int) -> dict[str, Any
     parquet = bronze_root / f"{year}.parquet"
     report_path = extract_root / str(year) / _REPORT_NAME
 
-    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else None
+    report = (
+        json.loads(report_path.read_text(encoding="utf-8"))
+        if report_path.exists()
+        else None
+    )
 
     if parquet.exists():
         status = "ingested"
@@ -126,8 +133,12 @@ def _year_row(extract_root: Path, bronze_root: Path, year: int) -> dict[str, Any
     if parquet.exists():
         ids = pl.read_parquet(parquet, columns=["id"])
         row["bronze_row_count"] = ids.height
-        row["duplicate_id_count"] = ids.height - ids.select(pl.col("id").n_unique()).item()
+        row["duplicate_id_count"] = (
+            ids.height - ids.select(pl.col("id").n_unique()).item()
+        )
         row["bronze_file_path"] = f"{year}.parquet"  # relative to bronze_root
-        row["ingested_at"] = datetime.fromtimestamp(parquet.stat().st_mtime, tz=timezone.utc)
+        row["ingested_at"] = datetime.fromtimestamp(
+            parquet.stat().st_mtime, tz=timezone.utc
+        )
 
     return row

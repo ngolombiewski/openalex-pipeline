@@ -40,6 +40,7 @@ def run(extract_root: Path, bronze_root: Path, years: list[int]) -> pl.DataFrame
 
 # --- Internal ---------------------------------------------------------------
 
+
 def _log_year(result: YearIngestResult) -> None:
     """Log one year's outcome live, surfacing non-blocking warnings (smoke alarms).
 
@@ -61,6 +62,4 @@ def _log_year(result: YearIngestResult) -> None:
             "(non-blocking; cause may be source churn or disk corruption)"
         )
     if result.count_mismatch:
-        logger.warning(
-            f"{year}: extraction reported count_mismatch (non-blocking)"
-        )
+        logger.warning(f"{year}: extraction reported count_mismatch (non-blocking)")

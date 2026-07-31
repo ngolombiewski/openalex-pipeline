@@ -25,7 +25,9 @@ from .conftest import (
 )
 
 
-def test_classify_year_returns_fresh_for_missing_year_dir(root: Path, query: str) -> None:
+def test_classify_year_returns_fresh_for_missing_year_dir(
+    root: Path, query: str
+) -> None:
     status = classify_year(root, 1980, query)
 
     assert status.state is YearState.FRESH
@@ -68,7 +70,9 @@ def test_write_page_writes_records_without_extracted_at_and_advances_cursor(
     )
 
     page_path = year_dir(root, 1980) / "page-0001.jsonl"
-    records = [json.loads(line) for line in page_path.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in page_path.read_text(encoding="utf-8").splitlines()
+    ]
 
     assert records == [
         {"id": "W1", "title": "First"},
@@ -168,7 +172,9 @@ def test_finalize_year_records_non_blocking_count_mismatch(
     assert report.records_fetched == 2
     assert report.page_count == 1
     assert report.count_mismatch is True
-    assert read_json(year_dir(root, 1980) / "_YEAR_REPORT.json")["count_mismatch"] is True
+    assert (
+        read_json(year_dir(root, 1980) / "_YEAR_REPORT.json")["count_mismatch"] is True
+    )
 
 
 def test_classify_year_complete_uses_report_query_and_ignores_cursor(
@@ -325,7 +331,9 @@ def test_write_page_overwrites_existing_page_file(root: Path) -> None:
     )
 
     page_path = year_dir(root, 1980) / "page-0001.jsonl"
-    records = [json.loads(line) for line in page_path.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in page_path.read_text(encoding="utf-8").splitlines()
+    ]
 
     assert records == [{"id": "W1", "stale": False}, {"id": "W2"}]
     assert read_json(year_dir(root, 1980) / "_CURSOR.json") == {

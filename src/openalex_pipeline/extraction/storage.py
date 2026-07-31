@@ -191,9 +191,7 @@ def classify_year(root: Path, year: int, query: str) -> YearStatus:
             next_page=next_page,
         )
 
-    raise CorruptedState(
-        f"year {year}: invalid file combination: {sorted(layout)!r}"
-    )
+    raise CorruptedState(f"year {year}: invalid file combination: {sorted(layout)!r}")
 
 
 def initialize_year(root: Path, year: int, query: str, meta_count: int) -> None:

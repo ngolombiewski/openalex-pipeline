@@ -28,6 +28,7 @@ from .conftest import (
 
 # --- Path helpers -----------------------------------------------------------
 
+
 def test_gcs_object_name_is_hive_partitioned():
     assert core.gcs_object_name(1950) == "bronze/publication_year=1950/1950.parquet"
 
@@ -39,6 +40,7 @@ def test_gcs_uri_is_full():
 
 
 # --- discover_years ---------------------------------------------------------
+
 
 def test_discover_years_returns_digit_stems_sorted(bronze_root):
     make_bronze_parquet(bronze_root, 1952)
@@ -60,6 +62,7 @@ def test_discover_years_empty_when_no_parquet(bronze_root):
 
 # --- should_skip (the three-case table from the design) ---------------------
 
+
 def test_should_skip_object_newer_skips():
     # Object updated 1s after local mtime -> skip.
     assert core.should_skip(BASE_MTIME, BASE_MTIME_UTC + timedelta(seconds=1)) is True
@@ -80,6 +83,7 @@ def test_should_skip_equal_timestamps_skips():
 
 
 # --- upload_year ------------------------------------------------------------
+
 
 def test_upload_year_uploads_when_absent(bronze_root, bucket):
     make_bronze_parquet(bronze_root, 1950)
@@ -128,6 +132,7 @@ def test_upload_year_reuploads_when_local_newer(bronze_root, bucket):
 
 # --- manifest ---------------------------------------------------------------
 
+
 def test_build_manifest_schema_and_rows(bronze_root, bucket):
     make_bronze_parquet(bronze_root, 1950)
     make_bronze_parquet(bronze_root, 1951)
@@ -165,6 +170,7 @@ def test_manifest_object_name_outside_bronze_prefix():
 
 
 # --- runner -----------------------------------------------------------------
+
 
 def test_run_uploads_all_years_and_writes_manifest(bronze_root, bucket):
     make_bronze_parquet(bronze_root, 1950)
@@ -208,6 +214,7 @@ def test_run_empty_bronze_writes_empty_manifest(bronze_root, bucket):
 
 # --- CLI: resolve_bronze_root -----------------------------------------------
 
+
 def test_resolve_bronze_root_flag_wins(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENALEX_DATA_ROOT", str(tmp_path / "env"))
     flag = tmp_path / "flag"
@@ -237,6 +244,7 @@ def test_resolve_bronze_root_nonexistent_raises(tmp_path):
 
 
 # --- CLI: resolve_bucket_name -----------------------------------------------
+
 
 def test_resolve_bucket_name_flag_wins(monkeypatch):
     monkeypatch.setenv("OPENALEX_GCS_BUCKET", "env-bucket")

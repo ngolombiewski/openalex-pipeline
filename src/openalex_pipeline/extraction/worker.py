@@ -136,7 +136,9 @@ def process_year(
         if cursor is None:
             logger.info("year {} is finalize-pending; no fetch needed", year)
         else:
-            logger.info("year {} is in progress; resuming at page {}", year, page_number)
+            logger.info(
+                "year {} is in progress; resuming at page {}", year, page_number
+            )
 
     while cursor is not None:
         records, next_cursor, _ = fetch_page(query, cursor, api_key)

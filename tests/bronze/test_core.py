@@ -32,6 +32,7 @@ from .conftest import (
 
 # --- classify_year ----------------------------------------------------------
 
+
 def test_parquet_present_classifies_ingested(extract_root, bronze_root):
     # C1: existence of the output Parquet is the only signal; no extraction dir.
     (bronze_root / "2002.parquet").write_bytes(b"not even a real parquet")
@@ -70,6 +71,7 @@ def test_parquet_present_wins_over_corrupt_extraction(extract_root, bronze_root)
 
 
 # --- assert_query_homogeneity ------------------------------------------------
+
 
 def test_homogeneity_passes_when_queries_differ_only_by_year(extract_root):
     # The per-shard publication_year clause is masked before comparison, so the
@@ -125,6 +127,7 @@ def test_mixed_selects_raise_integrity_error(extract_root):
 
 # --- ingest_year: READY happy path ------------------------------------------
 
+
 def test_ingest_ready_writes_parquet_and_result(extract_root, bronze_root):
     # C7
     records = [make_record("W1"), make_record("W2"), make_record("W3")]
@@ -136,6 +139,7 @@ def test_ingest_ready_writes_parquet_and_result(extract_root, bronze_root):
     assert result.bronze_row_count == 3
     assert result.duplicate_id_count == 0
     # G3: YearIngestResult carries the ABSOLUTE path.
+    assert result.bronze_file_path is not None
     assert result.bronze_file_path == (bronze_root / "2002.parquet")
     assert result.bronze_file_path.is_absolute()
     assert (bronze_root / "2002.parquet").exists()
@@ -152,7 +156,9 @@ def test_written_parquet_has_exact_ordered_schema(extract_root, bronze_root):
     assert frame.schema == pl.Schema(BRONZE_SCHEMA)
 
 
-def test_nested_fields_landed_as_verbatim_json_without_fabricated_keys(extract_root, bronze_root):
+def test_nested_fields_landed_as_verbatim_json_without_fabricated_keys(
+    extract_root, bronze_root
+):
     # C9: forced-String fidelity. One record's `ids` has a pmid key, the other
     # omits it; the omitting record must NOT gain a fabricated "pmid": null.
     with_pmid = make_record(
@@ -194,6 +200,7 @@ def test_multi_page_year_read_in_one_pass(extract_root, bronze_root):
 
 # --- ingest_year: duplicate ids (non-blocking) ------------------------------
 
+
 def test_duplicate_id_count_is_excess_rows(extract_root, bronze_root):
     # C11: one id appears 3x (-> 2 excess), another 2x (-> 1 excess) => 3.
     records = [
@@ -216,9 +223,12 @@ def test_duplicate_id_count_is_excess_rows(extract_root, bronze_root):
 
 # --- ingest_year: loud failures ---------------------------------------------
 
+
 def test_null_id_raises_integrity_error_and_writes_nothing(extract_root, bronze_root):
     # C12: assertion precedes write -> no parquet, no tmp.
-    make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record(None)])
+    make_extract_year(
+        extract_root, 2002, records=[make_record("W1"), make_record(None)]
+    )
 
     with pytest.raises(IntegrityError):
         ingest_year(extract_root, bronze_root, 2002)
@@ -259,7 +269,9 @@ def test_row_count_mismatch_raises_integrity_error(extract_root, bronze_root):
 
 def test_malformed_jsonl_raises_corrupted_state(extract_root, bronze_root):
     # C14
-    make_extract_year(extract_root, 2002, records=[make_record("W1"), make_record("W2")])
+    make_extract_year(
+        extract_root, 2002, records=[make_record("W1"), make_record("W2")]
+    )
     corrupt_page_line(extract_root / "2002" / "page-0001.jsonl", line_no=0)
 
     with pytest.raises(CorruptedState):
@@ -270,6 +282,7 @@ def test_malformed_jsonl_raises_corrupted_state(extract_root, bronze_root):
 
 
 # --- ingest_year: INGESTED / PENDING short-circuits -------------------------
+
 
 def test_ingest_already_ingested_year_does_not_rewrite(extract_root, bronze_root):
     # C15: INGESTED -> no read, no write; existing parquet untouched.
@@ -302,6 +315,7 @@ def test_ingest_pending_year_writes_nothing(extract_root, bronze_root):
 
 # --- empty-year path --------------------------------------------------------
 
+
 def test_zero_result_year_via_ingest_writes_empty_parquet(extract_root, bronze_root):
     # C17
     make_extract_year(extract_root, 2002, empty=True)
@@ -330,11 +344,13 @@ def test_write_empty_year_directly(extract_root, bronze_root):
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"zero_byte_extra": True},               # zero-byte page alongside non-empty page
+        {"zero_byte_extra": True},  # zero-byte page alongside non-empty page
         {"empty": True, "extra_zero_byte_pages": 1},  # two zero-byte pages
     ],
 )
-def test_disallowed_zero_byte_combos_raise_corrupted_state(extract_root, bronze_root, kwargs):
+def test_disallowed_zero_byte_combos_raise_corrupted_state(
+    extract_root, bronze_root, kwargs
+):
     # C19 (G4)
     make_extract_year(extract_root, 2002, **kwargs)
 

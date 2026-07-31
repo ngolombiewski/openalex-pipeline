@@ -63,7 +63,9 @@ class FakeBlob:
 class FakeBucket:
     """In-memory stand-in for a GCS Bucket. ``blob(name)`` is stable per name."""
 
-    def __init__(self, name: str = "test-bucket", upload_time: datetime = UPLOAD_TIME) -> None:
+    def __init__(
+        self, name: str = "test-bucket", upload_time: datetime = UPLOAD_TIME
+    ) -> None:
         self.name = name
         self.upload_time = upload_time
         self._blobs: dict[str, FakeBlob] = {}
@@ -95,7 +97,9 @@ def bucket() -> FakeBucket:
     return FakeBucket()
 
 
-def make_bronze_parquet(bronze_root: Path, year: int, mtime: float = BASE_MTIME) -> Path:
+def make_bronze_parquet(
+    bronze_root: Path, year: int, mtime: float = BASE_MTIME
+) -> Path:
     """Write a tiny real Parquet for ``year`` and stamp its mtime."""
     path = bronze_root / f"{year}.parquet"
     pl.DataFrame({"id": [f"W{year}"]}).write_parquet(path)

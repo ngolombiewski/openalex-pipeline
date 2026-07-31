@@ -39,7 +39,7 @@ def test_run_handles_mixed_states(extract_root, bronze_root):
     run(extract_root, bronze_root, [2000])  # 2000 now INGESTED
 
     make_extract_year(extract_root, 2001, records=[make_record("W1")])  # READY
-    make_extract_year(extract_root, 2002, complete=False)               # PENDING
+    make_extract_year(extract_root, 2002, complete=False)  # PENDING
 
     manifest = run(extract_root, bronze_root, [2000, 2001, 2002])
 
@@ -67,13 +67,18 @@ def test_rerun_is_idempotent(extract_root, bronze_root):
     make_extract_year(extract_root, 2002, records=[make_record("W2")])
 
     first = run(extract_root, bronze_root, [2001, 2002])
-    mtimes = {y: (bronze_root / f"{y}.parquet").stat().st_mtime_ns for y in (2001, 2002)}
+    mtimes = {
+        y: (bronze_root / f"{y}.parquet").stat().st_mtime_ns for y in (2001, 2002)
+    }
 
     second = run(extract_root, bronze_root, [2001, 2002])
 
     for year in (2001, 2002):
         assert (bronze_root / f"{year}.parquet").stat().st_mtime_ns == mtimes[year]
-        assert manifest_row(first, year)["ingested_at"] == manifest_row(second, year)["ingested_at"]
+        assert (
+            manifest_row(first, year)["ingested_at"]
+            == manifest_row(second, year)["ingested_at"]
+        )
 
 
 def test_catch_up_equals_range_ingest(extract_root, bronze_root):
