@@ -226,7 +226,7 @@ pointer and recreating it is free.
 
 ## 8. Analytical questions
 
-### Q1 — The Takeover
+### Q1 — AI's share of CS works
 
 **No cohort restriction.** A within-year ratio is immune to the citation-window
 and age confounds that force cohort control on Q2 and Q3. Denominator is every
@@ -235,7 +235,7 @@ silver work in the year.
 **Published long over the two variants**, so a dashboard toggle is a filter
 rather than a pivot.
 
-### Q2 — The Shelf Life
+### Q2 — Citation-weighted age of cited works
 
 **The unit of observation is a citation event received by a CS work, classified
 by the cited work.** A work receiving 100 citations in year `y` contributes 100
@@ -255,15 +255,14 @@ whose cumulative citation-event weight reaches q of the group/year total.
 
 **Q2 replaced a per-paper half-life measure** (`int_paper_half_life`,
 `gold_citation_half_life_by_subfield`). Those relations were removed from both
-datasets rather than retained as secondary outputs. Their rationale is in
-`docs/design-archive/gold-design.md` §3.
+datasets rather than retained as secondary outputs.
 
 **Q2 is a full-corpus snapshot, by decision.** Citation histories live on cited
 works across every publication shard, so current-year-only automation cannot
 extend it honestly. Advancing `citation_age_year_max` requires a manual
 full-corpus refresh and prod reconciliation.
 
-### Q3 — The Winner's Game
+### Q3 — Citation concentration (Gini/top-k)
 
 **A fixed citation window replaced cumulative `cited_by_count`.**
 `cited_by_count` is cumulative to the snapshot date, so it is a function of a
@@ -312,8 +311,7 @@ window; pre-2012 cohorts would silently fabricate zero-citation papers.
 
 **Durability risk, named and unsolved:** because `counts_by_year` rolls, a
 future full-corpus re-extraction may drop citation years 2012–13 and make the
-earliest cohorts unrebuildable. No mitigation is in place. See
-`docs/design-archive/gold-q3-revisit-design.md` §10.
+earliest cohorts unrebuildable. No mitigation is in place.
 
 **The terminal cohort carries a settling caveat.** Cells whose window ends in
 the latest configured citation year rest on the least-settled year in the
