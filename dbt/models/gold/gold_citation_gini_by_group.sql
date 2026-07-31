@@ -1,4 +1,4 @@
--- Q3 — The Winner's Game, secondary pooled comparison.
+-- Q3 — Citation concentration (Gini/top-k), secondary pooled comparison.
 --
 -- Grain: cited_group × publication_year × citation_age, where cited_group
 -- classifies each paper itself as ai / cv_pr / rest_cs. Q3 has no citing-side

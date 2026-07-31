@@ -8,6 +8,9 @@ models:
       is all silver works in the year. is_partial_year flags the in-flight
       extraction year so the dashboard can dim it. No cohort restriction: a
       within-year ratio is immune to the citation-window and age confounds.
+    config:
+      contract:
+        enforced: true
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -17,17 +20,40 @@ models:
       - dbt_utils.expression_is_true:
           arguments:
             expression: "ai_works <= cs_works"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >
+              is_partial_year = (publication_year = {{ var('partial_year') }})
     columns:
       - name: publication_year
+        data_type: int64
         tests:
           - not_null
       - name: variant
+        data_type: string
         tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['strict', 'broad']
+      - name: cs_works
+        data_type: int64
+        description: All CS works in the publication year.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: ai_works
+        data_type: int64
+        description: Works classified as AI under the row's variant.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
       - name: share
+        data_type: float64
         description: ai_works / cs_works within the year.
         tests:
           - not_null
@@ -35,6 +61,11 @@ models:
               arguments:
                 min_value: 0
                 max_value: 1
+      - name: is_partial_year
+        data_type: bool
+        description: Whether the publication year is the configured partial year.
+        tests:
+          - not_null
 
   - name: gold_citation_age_by_year
     description: >

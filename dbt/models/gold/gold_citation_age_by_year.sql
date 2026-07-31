@@ -1,4 +1,4 @@
--- Q2 — The Shelf Life: annual citation-weighted age of cited CS works.
+-- Q2 — Citation-weighted age of cited works by citation year.
 -- Grain: citation_year × cited_group, where cited_group is the mutually
 -- exclusive partition ai / cv_pr / rest_cs. Classification applies to the
 -- cited work, not the unknown citing work.

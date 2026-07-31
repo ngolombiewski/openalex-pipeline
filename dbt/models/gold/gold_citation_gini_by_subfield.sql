@@ -1,4 +1,4 @@
--- Q3 — The Winner's Game, primary subfield comparison.
+-- Q3 — Citation concentration (Gini/top-k), primary subfield comparison.
 --
 -- Grain: subfield_id × publication_year × citation_age. Each citation_age is
 -- the cumulative fixed window of complete calendar years 1..citation_age
