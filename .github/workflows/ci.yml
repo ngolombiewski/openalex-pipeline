@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # No .env in CI. dbt and the Dagster code location read these directly;
+  # both resolve statically, so a placeholder project is enough — nothing
+  # in this workflow authenticates to GCP or issues a query.
+  OPENALEX_GCP_PROJECT: ci-placeholder-project
+  DBT_PROFILES_DIR: dbt
+  DBT_LOG_PATH: dbt/logs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      # --locked fails if uv.lock is out of sync with pyproject.toml,
+      # so a stale lock file is caught here rather than at runtime.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Typecheck
+        run: uv run pyright
+
+      - name: Test
+        run: uv run pytest -q
+
+      # dbt_packages is gitignored, so dependencies come first.
+      - name: dbt deps
+        run: uv run dbt deps --project-dir dbt
+
+      # Parses models, refs, and schema YAML without touching BigQuery.
+      # Subsumed by the Dagster check below, but run separately so a broken
+      # model is reported as a dbt failure rather than a code-location failure.
+      - name: dbt parse
+        run: uv run dbt parse --project-dir dbt
+
+      - name: Validate Dagster definitions
+        run: uv run dagster definitions validate
