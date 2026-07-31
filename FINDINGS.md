@@ -67,11 +67,12 @@ retroactive OpenAlex reclassification:
 <!-- prettier-ignore -->
 | Check | Baseline |
 |---|---|
-| pytest | 247 passed |
+| pytest | 255 passed |
 | Ruff check | passes |
-| Ruff **format** check | 19 pre-existing files flagged, not applied — outside recent changes |
-| dbt manifest | 6 models, 110 data tests, 3 unit tests |
-| dbt suite, both targets | 112 checks, 1 expected warning |
+| Ruff format check | passes |
+| Pyright | passes |
+| dbt manifest | 6 models, 116 data tests, 3 unit tests |
+| dbt suite, both targets | 119 checks total: 118 pass, 1 expected warning |
 | Expected warning: `warn_citation_age_negative_entries` | 198,882 prod rows / 46,357 dev rows |
 | Last full prod staging build | 43.2 GiB billed (cap: 100 GiB/job) |
 
@@ -83,7 +84,7 @@ below the per-job cap.
 
 ---
 
-## Q1 — The Takeover
+## Q1 — AI's share of CS works
 
 **Result: AI's share of CS output is at an all-time high, but the path is not
 monotone.** ≈31% in 1980, a trough near 23% around 2012, ≈35% in 2025, ≈40% in
@@ -100,7 +101,7 @@ consumer.
 
 ---
 
-## Q2 — The Shelf Life
+## Q2 — Citation-weighted age of cited works
 
 **Result: citation attention has shifted toward younger work across all of CS,
 with CV/PR generally the most recent.**
@@ -135,7 +136,7 @@ obsolescence. Q2 is a snapshot through citation year 2025, not a live metric.
 
 ---
 
-## Q3 — The Winner's Game
+## Q3 — Citation concentration (Gini/top-k)
 
 **Result: citation impact in AI is a winner's game, and more so than the
 headline Gini shows.**
