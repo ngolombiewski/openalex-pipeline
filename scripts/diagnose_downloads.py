@@ -117,7 +117,9 @@ def fetch_api_ids(
         all_ids.extend(page_ids)
         page += 1
 
-        logger.info(f"fetch_api_ids: page {page} — fetched {len(page_ids)}, running total {len(all_ids)}")
+        logger.info(
+            f"fetch_api_ids: page {page} — fetched {len(page_ids)}, running total {len(all_ids)}"
+        )
 
         cursor = data["meta"].get("next_cursor")
         if not cursor:

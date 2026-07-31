@@ -25,13 +25,17 @@ ENV = "OPENALEX_DATA_ROOT"
 
 # --- parse_args -------------------------------------------------------------
 
+
 def test_parse_args_reads_flags(tmp_path):
     # A1
     args = parse_args(
         [
-            "--extract-root", str(tmp_path / "e"),
-            "--bronze-root", str(tmp_path / "b"),
-            "--years", "1950:1960",
+            "--extract-root",
+            str(tmp_path / "e"),
+            "--bronze-root",
+            str(tmp_path / "b"),
+            "--years",
+            "1950:1960",
         ]
     )
     assert args.extract_root == Path(tmp_path / "e")
@@ -45,6 +49,7 @@ def test_parse_args_years_defaults_to_none(tmp_path):
 
 
 # --- resolve_roots ----------------------------------------------------------
+
 
 def test_resolve_roots_flags_win_over_env(tmp_path, monkeypatch):
     # A2
@@ -78,12 +83,15 @@ def test_resolve_roots_missing_config_exits(monkeypatch):
 def test_resolve_roots_absent_extract_root_exits(tmp_path, monkeypatch):
     # A5
     monkeypatch.delenv(ENV, raising=False)
-    args = parse_args(["--extract-root", str(tmp_path / "missing"), "--bronze-root", str(tmp_path)])
+    args = parse_args(
+        ["--extract-root", str(tmp_path / "missing"), "--bronze-root", str(tmp_path)]
+    )
     with pytest.raises(SystemExit):
         resolve_roots(args)
 
 
 # --- build_years_list -------------------------------------------------------
+
 
 def test_build_years_list_explicit_range_inclusive(extract_root):
     # A6
@@ -109,13 +117,15 @@ def test_build_years_list_discover_mode(extract_root):
 def test_discover_mode_excludes_missing_dirs_includes_incomplete(extract_root):
     # A9: present-incomplete dir appears (-> PENDING); missing-dir year absent.
     make_extract_year(extract_root, 2000, records=[make_record("W1")])  # complete
-    make_extract_year(extract_root, 2001, complete=False)               # incomplete
+    make_extract_year(extract_root, 2001, complete=False)  # incomplete
     # 2002 has no dir at all.
 
     assert build_years_list(extract_root, None) == [2000, 2001]
 
 
-@pytest.mark.parametrize("years_arg", ["abc", "1950:", ":1960", "1950:1940", "1950-1960"])
+@pytest.mark.parametrize(
+    "years_arg", ["abc", "1950:", ":1960", "1950:1940", "1950-1960"]
+)
 def test_build_years_list_malformed_range_exits(extract_root, years_arg):
     # A10a
     with pytest.raises(SystemExit):
@@ -130,6 +140,7 @@ def test_build_years_list_discover_empty_exits(extract_root):
 
 # --- main (end to end) ------------------------------------------------------
 
+
 def test_main_explicit_range_end_to_end(extract_root, bronze_root):
     # A11
     make_extract_year(extract_root, 1953, records=[make_record("W1")])
@@ -137,9 +148,12 @@ def test_main_explicit_range_end_to_end(extract_root, bronze_root):
 
     main(
         [
-            "--extract-root", str(extract_root),
-            "--bronze-root", str(bronze_root),
-            "--years", "1953:1954",
+            "--extract-root",
+            str(extract_root),
+            "--bronze-root",
+            str(bronze_root),
+            "--years",
+            "1953:1954",
         ]
     )
 
@@ -170,9 +184,12 @@ def test_main_surfaces_warnings(extract_root, bronze_root, loguru_messages):
 
     main(
         [
-            "--extract-root", str(extract_root),
-            "--bronze-root", str(bronze_root),
-            "--years", "2001:2002",
+            "--extract-root",
+            str(extract_root),
+            "--bronze-root",
+            str(bronze_root),
+            "--years",
+            "2001:2002",
         ]
     )
 
@@ -186,13 +203,18 @@ def test_main_surfaces_warnings(extract_root, bronze_root, loguru_messages):
 
 def test_main_does_not_swallow_bronze_error(extract_root, bronze_root):
     # A14
-    make_extract_year(extract_root, 2002, records=[make_record("W1", cited_by_count="lots")])
+    make_extract_year(
+        extract_root, 2002, records=[make_record("W1", cited_by_count="lots")]
+    )
 
     with pytest.raises(CorruptedState):
         main(
             [
-                "--extract-root", str(extract_root),
-                "--bronze-root", str(bronze_root),
-                "--years", "2002:2002",
+                "--extract-root",
+                str(extract_root),
+                "--bronze-root",
+                str(bronze_root),
+                "--years",
+                "2002:2002",
             ]
         )

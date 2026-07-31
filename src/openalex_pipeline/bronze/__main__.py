@@ -26,15 +26,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Convert completed extraction years to bronze Parquet.",
     )
     parser.add_argument(
-        "--extract-root", type=Path, default=None,
+        "--extract-root",
+        type=Path,
+        default=None,
         help="Extraction input directory. Default: {OPENALEX_DATA_ROOT}/extract.",
     )
     parser.add_argument(
-        "--bronze-root", type=Path, default=None,
+        "--bronze-root",
+        type=Path,
+        default=None,
         help="Bronze output directory. Default: {OPENALEX_DATA_ROOT}/bronze.",
     )
     parser.add_argument(
-        "--years", type=str, default=None,
+        "--years",
+        type=str,
+        default=None,
         help="Inclusive year range START:END. If omitted, discover completed years.",
     )
     return parser.parse_args(argv)
@@ -103,14 +109,15 @@ def main(argv: list[str] | None = None) -> None:
 
 # --- Internal ---------------------------------------------------------------
 
-def _resolve_one(flag: Path | None, base: Path | None, name: str, flag_name: str) -> Path:
+
+def _resolve_one(
+    flag: Path | None, base: Path | None, name: str, flag_name: str
+) -> Path:
     if flag is not None:
         return flag
     if base is not None:
         return base / name
-    raise SystemExit(
-        f"{flag_name} not given and {OPENALEX_DATA_ROOT_ENV} is not set"
-    )
+    raise SystemExit(f"{flag_name} not given and {OPENALEX_DATA_ROOT_ENV} is not set")
 
 
 if __name__ == "__main__":

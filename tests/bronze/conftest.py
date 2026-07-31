@@ -24,6 +24,7 @@ _OMIT = object()
 
 # --- Path fixtures ----------------------------------------------------------
 
+
 @pytest.fixture
 def extract_root(tmp_path: Path) -> Path:
     """Extraction input directory, created empty."""
@@ -41,6 +42,7 @@ def bronze_root(tmp_path: Path) -> Path:
 
 
 # --- Record builder ---------------------------------------------------------
+
 
 def make_record(id_: str | None = "W1", **overrides: Any) -> dict[str, Any]:
     """One OpenAlex-shaped record with all 21 schema keys, type-correct.
@@ -65,14 +67,24 @@ def make_record(id_: str | None = "W1", **overrides: Any) -> dict[str, Any]:
         "primary_topic": {"id": "T100", "display_name": "Graph Theory", "score": 0.91},
         "topics": [{"id": "T100", "display_name": "Graph Theory", "score": 0.91}],
         "cited_by_count": 7,
-        "counts_by_year": [{"year": 2003, "cited_by_count": 4}, {"year": 2004, "cited_by_count": 3}],
+        "counts_by_year": [
+            {"year": 2003, "cited_by_count": 4},
+            {"year": 2004, "cited_by_count": 3},
+        ],
         "cited_by_percentile_year": {"min": 80, "max": 90},
         "citation_normalized_percentile": {"value": 0.73, "is_in_top_1_percent": False},
         "fwci": 1.25,
         "referenced_works_count": 12,
-        "open_access": {"is_oa": True, "oa_status": "gold", "any_repository_has_fulltext": False},
+        "open_access": {
+            "is_oa": True,
+            "oa_status": "gold",
+            "any_repository_has_fulltext": False,
+        },
         "doi": "https://doi.org/10.1234/example",
-        "ids": {"openalex": f"https://openalex.org/{id_}", "doi": "https://doi.org/10.1234/example"},
+        "ids": {
+            "openalex": f"https://openalex.org/{id_}",
+            "doi": "https://doi.org/10.1234/example",
+        },
         "keywords": [{"keyword": "graphs", "score": 0.5}],
         "updated_date": "2024-06-01",
     }
@@ -150,12 +162,16 @@ def make_extract_year(
             page_count = 2
 
     if complete:
-        _write_report(year_dir, year, total=total, page_count=page_count, overrides=report)
+        _write_report(
+            year_dir, year, total=total, page_count=page_count, overrides=report
+        )
 
     return year_dir
 
 
-def _write_page(year_dir: Path, page_number: int, records: list[dict[str, Any]]) -> Path:
+def _write_page(
+    year_dir: Path, page_number: int, records: list[dict[str, Any]]
+) -> Path:
     path = year_dir / f"page-{page_number:04d}.jsonl"
     path.write_text(
         "".join(json.dumps(record) + "\n" for record in records),
@@ -189,7 +205,9 @@ def _write_report(
     return path
 
 
-def corrupt_page_line(page_path: Path, line_no: int = 0, text: str = "{not valid json") -> None:
+def corrupt_page_line(
+    page_path: Path, line_no: int = 0, text: str = "{not valid json"
+) -> None:
     """Overwrite one line of an existing page file with broken JSON."""
     lines = page_path.read_text(encoding="utf-8").splitlines()
     lines[line_no] = text
@@ -197,6 +215,7 @@ def corrupt_page_line(page_path: Path, line_no: int = 0, text: str = "{not valid
 
 
 # --- Read helpers -----------------------------------------------------------
+
 
 def read_year_parquet(bronze_root: Path, year: int) -> pl.DataFrame:
     return pl.read_parquet(bronze_root / f"{year}.parquet")
@@ -208,7 +227,9 @@ def read_manifest(bronze_root: Path) -> pl.DataFrame:
 
 def manifest_row(manifest: pl.DataFrame, year: int) -> dict[str, Any]:
     rows = manifest.filter(pl.col("publication_year") == year).to_dicts()
-    assert len(rows) == 1, f"expected exactly one manifest row for {year}, got {len(rows)}"
+    assert len(rows) == 1, (
+        f"expected exactly one manifest row for {year}, got {len(rows)}"
+    )
     return rows[0]
 
 
@@ -218,6 +239,7 @@ def tmp_files(directory: Path) -> list[Path]:
 
 
 # --- loguru capture ---------------------------------------------------------
+
 
 @pytest.fixture
 def loguru_messages():

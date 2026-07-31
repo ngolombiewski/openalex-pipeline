@@ -41,6 +41,8 @@ build-backend = "uv_build"
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
+# scripts/ is exploration only — spikes and one-off diagnostics, not shipped code.
+exclude = [".venv", "scripts"]
 
 [tool.dagster]
 module_name = "openalex_pipeline.orchestration.definitions"

@@ -85,7 +85,11 @@ def _bronze_schema(nested_dtype: pl.DataType = pl.String) -> dict[str, pl.DataTy
 def _completed_years(extract_dir: Path) -> list[int]:
     years: list[int] = []
     for child in extract_dir.iterdir():
-        if child.is_dir() and child.name.isdigit() and (child / "_YEAR_REPORT.json").exists():
+        if (
+            child.is_dir()
+            and child.name.isdigit()
+            and (child / "_YEAR_REPORT.json").exists()
+        ):
             years.append(int(child.name))
     return sorted(years)
 
@@ -165,9 +169,15 @@ def inspect_forced_string_schema(extract_dir: Path, years: list[int]) -> None:
 
         report = _load_report(extract_dir, year)
         try:
-            frame = pl.scan_ndjson(page_files, schema=mixed_schema).select(BRONZE_COLUMNS).collect()
+            frame = (
+                pl.scan_ndjson(page_files, schema=mixed_schema)
+                .select(BRONZE_COLUMNS)
+                .collect()
+            )
         except Exception as exc:  # noqa: BLE001 - spike reports parser behavior.
-            print(f"{year}: forced bronze mixed schema failed: {type(exc).__name__}: {exc}")
+            print(
+                f"{year}: forced bronze mixed schema failed: {type(exc).__name__}: {exc}"
+            )
             continue
 
         frames.append(frame)
@@ -199,15 +209,26 @@ def inspect_forced_string_json_round_trip(extract_dir: Path, year: int) -> None:
 
     mixed_schema = _bronze_schema(nested_dtype=pl.String)
     try:
-        forced = pl.scan_ndjson(page_files[0], schema=mixed_schema).select(BRONZE_COLUMNS).head(20).collect()
+        forced = (
+            pl.scan_ndjson(page_files[0], schema=mixed_schema)
+            .select(BRONZE_COLUMNS)
+            .head(20)
+            .collect()
+        )
     except Exception as exc:  # noqa: BLE001 - spike reports the actual parser behavior.
-        print(f"{year}: forced mixed schema failed before round trip: {type(exc).__name__}: {exc}")
+        print(
+            f"{year}: forced mixed schema failed before round trip: {type(exc).__name__}: {exc}"
+        )
         return
 
     try:
-        inferred = pl.scan_ndjson(page_files[0]).select(BRONZE_COLUMNS).head(20).collect()
+        inferred = (
+            pl.scan_ndjson(page_files[0]).select(BRONZE_COLUMNS).head(20).collect()
+        )
     except Exception as exc:  # noqa: BLE001 - spike reports the actual parser behavior.
-        print(f"{year}: inferred schema failed before round trip: {type(exc).__name__}: {exc}")
+        print(
+            f"{year}: inferred schema failed before round trip: {type(exc).__name__}: {exc}"
+        )
         return
 
     raw_records = _raw_records(page_files[0], limit=20)
@@ -226,15 +247,21 @@ def inspect_forced_string_json_round_trip(extract_dir: Path, year: int) -> None:
         try:
             forced_decoded = json.loads(forced_value)
         except json.JSONDecodeError as exc:
-            print(f"  {column}: forced String is not valid JSON: {exc}; sample={forced_value!r}")
+            print(
+                f"  {column}: forced String is not valid JSON: {exc}; sample={forced_value!r}"
+            )
             continue
 
         try:
             encoded = inferred.select(pl.col(column).struct.json_encode().alias(column))
             encoded_value = _non_null_value(encoded, column)
-            encoded_decoded = json.loads(encoded_value) if encoded_value is not None else None
+            encoded_decoded = (
+                json.loads(encoded_value) if encoded_value is not None else None
+            )
         except Exception as exc:  # noqa: BLE001 - spike reports encoder behavior.
-            print(f"  {column}: baseline json_encode failed: {type(exc).__name__}: {exc}")
+            print(
+                f"  {column}: baseline json_encode failed: {type(exc).__name__}: {exc}"
+            )
             continue
 
         matches_raw = forced_decoded == raw_records[row_index][column]

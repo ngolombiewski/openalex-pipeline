@@ -41,9 +41,7 @@ def discover_years(bronze_root: Path) -> list[int]:
     files mid-write in the bronze directory.
     """
     return sorted(
-        int(p.stem)
-        for p in bronze_root.glob("*.parquet")
-        if p.stem.isdigit()
+        int(p.stem) for p in bronze_root.glob("*.parquet") if p.stem.isdigit()
     )
 
 

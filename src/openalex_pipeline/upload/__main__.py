@@ -34,11 +34,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Upload bronze Parquet files to GCS, Hive-partitioned for BigQuery.",
     )
     parser.add_argument(
-        "--bronze-root", type=Path, default=None,
+        "--bronze-root",
+        type=Path,
+        default=None,
         help="Bronze input directory. Default: {OPENALEX_DATA_ROOT}/bronze.",
     )
     parser.add_argument(
-        "--bucket", type=str, default=None,
+        "--bucket",
+        type=str,
+        default=None,
         help=f"Destination GCS bucket. Default: ${OPENALEX_GCS_BUCKET_ENV}.",
     )
     return parser.parse_args(argv)
@@ -76,9 +80,7 @@ def resolve_bucket_name(args: argparse.Namespace) -> str:
         return args.bucket
     bucket = os.environ.get(OPENALEX_GCS_BUCKET_ENV)
     if bucket is None:
-        raise SystemExit(
-            f"--bucket not given and {OPENALEX_GCS_BUCKET_ENV} is not set"
-        )
+        raise SystemExit(f"--bucket not given and {OPENALEX_GCS_BUCKET_ENV} is not set")
     return bucket
 
 

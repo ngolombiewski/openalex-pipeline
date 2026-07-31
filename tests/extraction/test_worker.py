@@ -57,7 +57,9 @@ class FakeStorage:
         self.calls.append(("classify_year", root, year, query))
         return self.status
 
-    def initialize_year(self, root: Path, year: int, query: str, meta_count: int) -> None:
+    def initialize_year(
+        self, root: Path, year: int, query: str, meta_count: int
+    ) -> None:
         self.calls.append(("initialize_year", root, year, query, meta_count))
 
     def write_page(
@@ -84,7 +86,9 @@ class FakeFetchPage:
         self.pages = pages
         self.calls: list[tuple[str, str, str]] = []
 
-    def __call__(self, query: str, cursor: str, api_key: str) -> tuple[list[dict], str | None, int]:
+    def __call__(
+        self, query: str, cursor: str, api_key: str
+    ) -> tuple[list[dict], str | None, int]:
         self.calls.append((query, cursor, api_key))
         return self.pages.pop(0)
 
@@ -175,7 +179,9 @@ def test_complete_year_skips_fetch_and_reads_persisted_report_from_storage(
 def test_in_progress_resume_starts_from_status_cursor_and_next_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    storage = FakeStorage(YearStatus(YearState.IN_PROGRESS, cursor="cursor-3", next_page=3))
+    storage = FakeStorage(
+        YearStatus(YearState.IN_PROGRESS, cursor="cursor-3", next_page=3)
+    )
     fetch_page = FakeFetchPage([([{"id": "W3"}], None, 99)])
     install_storage(monkeypatch, storage)
 
@@ -268,7 +274,9 @@ def test_resumed_year_with_trailing_empty_page_skips_write_and_finalizes(
 ) -> None:
     # The stale-cursor resume shape: the persisted cursor fetches an empty
     # page with no cursor. Nothing is written; the year finalizes.
-    storage = FakeStorage(YearStatus(YearState.IN_PROGRESS, cursor="cursor-3", next_page=3))
+    storage = FakeStorage(
+        YearStatus(YearState.IN_PROGRESS, cursor="cursor-3", next_page=3)
+    )
     fetch_page = FakeFetchPage([([], None, 99)])
     install_storage(monkeypatch, storage)
 

@@ -9,7 +9,9 @@ from openalex_pipeline.extraction.models import (
 )
 
 
-def test_year_status_defaults_for_fresh_and_complete_do_not_carry_resume_pointer() -> None:
+def test_year_status_defaults_for_fresh_and_complete_do_not_carry_resume_pointer() -> (
+    None
+):
     assert YearStatus(YearState.FRESH) == YearStatus(
         state=YearState.FRESH,
         cursor=None,
@@ -23,11 +25,14 @@ def test_year_status_defaults_for_fresh_and_complete_do_not_carry_resume_pointer
 
 
 def test_year_status_in_progress_carries_resume_pointer() -> None:
-    assert YearStatus(
-        state=YearState.IN_PROGRESS,
-        cursor="cursor-2",
-        next_page=2,
-    ).cursor == "cursor-2"
+    assert (
+        YearStatus(
+            state=YearState.IN_PROGRESS,
+            cursor="cursor-2",
+            next_page=2,
+        ).cursor
+        == "cursor-2"
+    )
 
 
 def test_year_status_in_progress_allows_finalize_pending_cursor() -> None:
@@ -53,7 +58,9 @@ def test_year_report_holds_design_pinned_fields() -> None:
         count_mismatch=False,
     )
 
-    assert report.query == "works?filter=primary_topic.field.id:17,publication_year:1980"
+    assert (
+        report.query == "works?filter=primary_topic.field.id:17,publication_year:1980"
+    )
     assert report.year == 1980
     assert report.started_at == "2026-05-19T10:00:00Z"
     assert report.completed_at == "2026-05-19T10:05:00Z"
@@ -75,7 +82,9 @@ def test_year_outcome_holds_completed_or_skipped_status() -> None:
         count_mismatch=False,
     )
 
-    assert YearOutcome(year=1980, status="completed", report=report).status == "completed"
+    assert (
+        YearOutcome(year=1980, status="completed", report=report).status == "completed"
+    )
     assert YearOutcome(year=1980, status="skipped", report=report).status == "skipped"
 
 
