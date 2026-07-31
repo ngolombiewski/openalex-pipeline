@@ -11,7 +11,6 @@
 -- required count from a tied boundary frequency makes the result independent
 -- of paper ordering. Age 0 is excluded from the measures and exposed through
 -- age0_citation_share and zero_share_including_age0.
--- See docs/gold-q3-revisit-design.md.
 
 with paper_windows as (
 

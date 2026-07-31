@@ -6,8 +6,8 @@ models:
       Q1 — AI's share of CS works per publication year, long over the two
       ablation variants (one row per publication_year × variant). Denominator
       is all silver works in the year. is_partial_year flags the in-flight
-      extraction year so the dashboard can dim it. See
-      docs/design-archive/gold-design.md §2.
+      extraction year so the dashboard can dim it. No cohort restriction: a
+      within-year ratio is immune to the citation-window and age confounds.
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -42,7 +42,8 @@ models:
       mutually exclusive AI, CV/PR, and rest-of-CS cited-work groups. One row
       per citation_year × cited_group over the explicit snapshot window.
       Quantiles are discrete integer ages; recency shares are weighted by
-      positive citation events. See docs/gold-q2-revisit-design.md.
+      positive citation events. Classification applies to the cited work, not
+      the unknown citing work.
     config:
       contract:
         enforced: true
@@ -151,8 +152,7 @@ models:
       top1_share/top5_share/top10_share take ceil(k * n_papers) papers, and are
       tie-invariant because tied boundary papers carry the same citation count.
       The __unclassified__ bucket preserves papers with no subfield and is for
-      reconciliation, not analytical ranking. See
-      docs/gold-q3-revisit-design.md.
+      reconciliation, not analytical ranking.
     config:
       contract:
         enforced: true
@@ -275,8 +275,7 @@ models:
       1..citation_age window. Top-k shares use the full cohort and
       ceil(k * n_papers), with tie-invariant boundary allocation. rest_cs pools
       heterogeneous subfields, so this relation is not a like-for-like
-      replacement for the primary subfield view. See
-      docs/gold-q3-revisit-design.md.
+      replacement for the primary subfield view.
     config:
       contract:
         enforced: true

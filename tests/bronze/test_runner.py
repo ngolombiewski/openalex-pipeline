@@ -1,6 +1,7 @@
 """Tests for bronze.runner: run.
 
-Covers the R-series in docs/bronze-tests.md.
+Covers the runner series: ingest-every-READY-year sweep, manifest rebuild
+ordering, and loud propagation of corruption and integrity failures.
 """
 
 from __future__ import annotations

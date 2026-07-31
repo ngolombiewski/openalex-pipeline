@@ -13,7 +13,7 @@
 -- Silver: AI classification + projection to the analytical grain. One row per
 -- work, same grain as staging (no filter, no aggregation — trust the layer
 -- below). Adds the ai_strict/ai_broad ablation flags and carries forward only
--- the columns Q1–Q3 need. See docs/design-archive/silver-design.md.
+-- the columns Q1-Q3 need.
 
 select
     -- identity + dimensions
@@ -25,7 +25,8 @@ select
     primary_topic_subfield_id,
     primary_topic_subfield_display_name,
 
-    -- AI classification (DATA_MODEL.md). Match on the stable subfield id, pinned
+    -- AI classification. Match on the stable subfield id, not the display
+    -- name, pinned
     -- as vars. coalesce keeps the flags strictly boolean: a NULL subfield (none
     -- in the corpus today, but the staging not_null test is soft) is non-AI, not
     -- NULL, and stays in the CS denominator.

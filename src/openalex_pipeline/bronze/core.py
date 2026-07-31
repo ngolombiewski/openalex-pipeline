@@ -74,8 +74,9 @@ def classify_year(extract_root: Path, bronze_root: Path, year: int) -> YearState
 def assert_query_homogeneity(extract_root: Path, years: list[int]) -> None:
     """Assert that every completed year shard in scope stores the same query.
 
-    One landing zone holds one corpus (DATA_MODEL.md, "Landing-zone rule"): a
-    single filter/select across all year shards. Queries are compared as
+    One landing zone holds one corpus: a single filter/select across all year
+    shards. A different filter/select is a different corpus and belongs to a
+    separate pipeline instance with its own roots. Queries are compared as
     opaque strings after masking each shard's own ``publication_year:{year}``
     clause -- bronze never interprets filter or select semantics, it only
     demands that they agree.

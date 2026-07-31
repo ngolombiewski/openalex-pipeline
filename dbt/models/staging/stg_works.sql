@@ -14,7 +14,9 @@
 -- nothing else: parse the eight JSON-string columns, type the two date columns,
 -- apply the corpus-hygiene filters, and deduplicate on `id`. No classification
 -- (that is silver), no aggregation (that is gold).
--- See docs/design-archive/staging-design.md §4.
+-- Each of the four is deferred here deliberately: bronze lands nested fields
+-- as verbatim JSON strings and dates as strings, and defers dedup because
+-- resolving it needs the parsed updated_date.
 
 with source as (
 
@@ -30,7 +32,7 @@ with source as (
     -- explicitly-TRUE rows. At full corpus that is 1,282 works (~0.009%) whose
     -- retraction status is simply unrecorded; we drop them conservatively rather
     -- than infer "not retracted". is_paratext has no NULLs. Verified at the
-    -- step-6 prod run; reconciliation in STATE.md accounts for these 1,282.
+    -- 2026-07 full-corpus run; the singular tests assert the surviving counts.
     where is_retracted = false
       and is_paratext = false
       and publication_year between {{ var('year_min') }} and {{ var('year_max') }}

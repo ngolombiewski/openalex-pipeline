@@ -1,7 +1,7 @@
 -- Q1 — The Takeover: AI's share of CS works per publication year, long over
 -- the two ablation variants so the dashboard toggle is a filter, not a pivot.
 -- No cohort restriction: a within-year ratio is immune to the citation-window
--- and age confounds (docs/design-archive/gold-design.md §2). Denominator is
+-- and age confounds that force cohort control on Q2 and Q3. Denominator is
 -- every silver work in the year (all works are CS by the extraction filter;
 -- 0 null subfields).
 

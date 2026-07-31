@@ -10,7 +10,6 @@
 -- 1..citation_age. Gini uses exact integer value frequencies. Top-k shares
 -- take ceil(k * n_papers) from the full cohort and allocate tied boundary
 -- frequencies without arbitrary paper ordering. Age 0 is diagnostic only.
--- See docs/gold-q3-revisit-design.md.
 
 with paper_windows as (
 

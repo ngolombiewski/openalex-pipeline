@@ -5,8 +5,6 @@ output: numeric year subdirectories, each holding ``_YEAR_REPORT.json`` and one
 or more ``page-*.jsonl`` files. Everything here builds that layout (or a
 deliberately corrupt variant of it) on a real filesystem; the tests then run
 real Polars over it. Nothing is mocked.
-
-See ``docs/bronze-tests.md`` for the test plan these support.
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 """Tests for bronze.manifest: build_manifest, write_manifest.
 
-Covers the M-series in docs/bronze-tests.md.
+Covers the manifest series: wholesale rebuild from on-disk state, exact
+year scoping, column/dtype conformance, and the count-consistency assertion.
 """
 
 from __future__ import annotations

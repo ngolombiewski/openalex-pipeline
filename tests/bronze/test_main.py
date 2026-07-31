@@ -1,6 +1,7 @@
 """Tests for bronze.__main__: parse_args, resolve_roots, build_years_list, main.
 
-Covers the A-series in docs/bronze-tests.md.
+Covers the CLI entrypoint series: argument parsing, root resolution,
+years-list construction, and the exit-code contract.
 """
 
 from __future__ import annotations

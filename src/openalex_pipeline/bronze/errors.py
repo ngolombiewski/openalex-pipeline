@@ -47,8 +47,9 @@ class IntegrityError(BronzeError):
     Corpus-level:
       - Query homogeneity (core.assert_query_homogeneity, run by the runner
         before any ingestion): every completed shard in scope must store the
-        same query modulo its own publication_year clause. One landing zone =
-        one query (DATA_MODEL.md, "Landing-zone rule").
+        same query modulo its own publication_year clause. One landing zone
+        holds one corpus: a different filter/select is a different corpus and
+        belongs to a separate pipeline instance with its own roots.
       - records_fetched == bronze_row_count, re-asserted for every ingested
         year on each manifest rebuild: the write-time assertion held when the
         parquet was written, so a later divergence means the parquet is stale

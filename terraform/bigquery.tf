@@ -1,5 +1,4 @@
 # BigQuery surface: three datasets + the bronze external table.
-# Design: docs/design-archive/staging-design.md §1–§2.
 
 # Dataset locations must match the bucket's EU multi-region, or external
 # queries fail. Independent of var.region (europe-west3), which BigQuery
@@ -54,7 +53,8 @@ resource "google_bigquery_dataset" "analytics_dev" {
 }
 
 # External table over the Hive-partitioned bronze Parquet in GCS.
-# Schema is pinned (DATA_MODEL.md "Included columns"), not autodetected.
+# Schema is pinned, not autodetected. It mirrors bronze.schema.BRONZE_SCHEMA;
+# tests/bronze/test_schema_mirror.py asserts the two agree.
 # The eight nested fields are raw JSON strings in bronze, hence STRING here.
 # publication_year is supplied by the Hive partition key and must NOT be in
 # the declared schema — BigQuery rejects creation when a field is in both the

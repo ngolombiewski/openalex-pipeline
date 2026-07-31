@@ -1,6 +1,7 @@
 """Tests for bronze.core: classify_year, ingest_year, write_empty_year.
 
-Covers the C-series in docs/bronze-tests.md.
+Covers the core series: year classification, single-year ingestion, schema
+enforcement, duplicate/count diagnostics, and the empty-year path.
 """
 
 from __future__ import annotations

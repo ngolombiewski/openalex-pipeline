@@ -30,8 +30,10 @@ from .exceptions import DailyLimitReached
 from .models import RunReport, YearOutcome
 from .settings import Settings
 
-# Bronze source columns, pinned in docs/DATA_MODEL.md. The runner owns the
-# order; any change must be reflected in the data model docs first.
+# The 21 bronze source columns, requested server-side via OpenAlex `select=`.
+# The runner owns this list and its order. It is mirrored by
+# `bronze.schema.BRONZE_SCHEMA`, which imposes the same columns on read; adding
+# or removing one here without changing that schema breaks bronze ingestion.
 SELECT_COLUMNS = (
     "id,title,publication_year,publication_date,type,language,is_retracted,"
     "is_paratext,primary_topic,topics,cited_by_count,counts_by_year,"
