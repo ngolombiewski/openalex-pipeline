@@ -35,8 +35,6 @@ with discussion.
 - Comments and docstrings point inward, not outward: Don't cite or ref external
   documents that might go stale. Exception: Load-bearing code-to-code references
   and cross-file contracts.
-- When writing markdown, add `<!-- prettier-ignore -->` in front of tables to
-  avoid wrapping at 80 chars.
 - Use `uv`, never `pip`.
 - Use `uv run ...`, never `python3` or `python`.
 - Don't add dependencies; ask first if there is need. Everything in
