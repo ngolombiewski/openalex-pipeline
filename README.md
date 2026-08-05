@@ -22,67 +22,44 @@ specific, narrower sense than the obvious measure suggests.
 </picture>
 
 Roughly 31% of CS works in 1980 were AI, sliding to a trough near 23% around
-2012, then climbing to ~35% in 2025. The dip-and-surge shape lines up with the
-qualitative "AI winter" narrative.
+2012, then climbing to ~35% in 2025; the broad sensitivity series follows the
+same shape. Strict AI is pinned to OpenAlex subfield 1702, while broad AI adds
+computer vision and pattern recognition (1707). Because OpenAlex assigns topics
+retroactively, the history shows how today's taxonomy sees earlier research,
+not how each era saw itself; the dashed 2026 endpoint is partial data.
 
-"AI" is pinned by **stable OpenAlex subfield id, never display name** — strict is
-subfield 1702; broad adds computer vision and pattern recognition (1707). Every
-downstream model carries both, so each result has a built-in sensitivity check
-rather than a single contestable definition.
+### Q2 — By 2025, half of citation attention went to work no more than five years old
 
-**The caveat that travels with this result:** OpenAlex assigns topics
-retroactively using a modern taxonomy. That is what makes a 1980 "AI share"
-well-defined at all, and it means the series measures *how today's taxonomy sees
-1980*, not how 1980 saw itself.
+<!-- prettier-ignore -->
+| Cited-work group | Median age, 2012 → 2025 | 2025 citations to work ≤5 years old |
+|---|---:|---:|
+| AI | 8 → 5 years | 55.4% |
+| Computer Vision & PR | 7 → 5 years | 57.2% |
+| Rest of CS | 7 → 5 years | 54.3% |
 
-### Q2 — Citation attention has shifted toward younger work
+Citation attention shifted toward younger work across computer science: median
+cited-work age fell from seven or eight years in 2012 to five years in every
+group by 2025, with CV/PR reaching that point first in 2018. This is a fixed
+snapshot through citation year 2025 and classifies the work being cited—not the
+unknown citing work—so it does not show what AI-authored papers cite or prove
+that research is becoming intrinsically obsolete faster.
 
-Median age of cited work fell from 8 years (2012) to 5 years (2025) across all
-of computer science, with computer vision consistently the most recent-leaning —
-it reached a median of 5 years back in 2018. By 2025, over half of all citation
-events went to work published within the previous five years.
+### Q3 — AI combines broad citation reach with winner-take-most outcomes
 
-This measures the ages of *cited* works. It is not evidence about what
-AI-authored papers cite, and not proof of faster intrinsic obsolescence.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/q3-citation-concentration-dark.svg">
+  <img alt="Citation reach and cited-only inequality across 11 computer science subfields for the 2020 cohort after five complete years" src="assets/q3-citation-concentration-light.svg">
+</picture>
 
-### Q3 — Citation impact in AI is a winner's game
-
-The usual measure of citation inequality — a Gini coefficient over all papers —
-conflates two different things: how many papers are *never* cited, and how
-unequally the cited ones share the winnings. Separating them reorders the field.
-
-Among 2020-cohort papers measured over five complete years, AI has the **highest
-cited-only Gini in computer science**, and computer vision the third. What
-distinguishes them is the *pairing*: both combine that concentration with among
-the **lowest uncited rates** in the field. AI papers get cited more often than
-average, and the winnings still pool at the top.
-
-The contrast makes the point. Computer graphics has a nearly identical
-cited-only Gini but more than twice the uncited rate — a different phenomenon
-wearing the same number. Information systems tops the all-papers Gini purely
-because 62% of its papers are never cited at all.
-
-This is also hardening over time: across the 2012 → 2020 cohorts, AI's
-cited-only Gini rose while its uncited rate fell.
-
-### What the data didn't support
-
-The original conjecture was that AI is simply more citation-concentrated than
-the rest of computer science. **It isn't.** On the pooled AI-versus-rest view the
-all-papers Gini gap runs slightly the *other* way for most cohorts, and AI is
-never the most concentrated CS subfield — it ranks 3rd–5th of 11 in every cohort
-at both measurement windows. Information systems holds the maximum throughout.
-
-The surviving claim is narrower and better: the distinction is not *how*
-concentrated AI is overall, but that it combines high concentration among cited
-papers with an unusually low share of papers that go uncited.
-
-One structural finding fell out of testing this. Pooled "rest of CS" Gini
-consistently exceeds the mean of individual subfield Ginis, because pooling
-heterogeneous subfields adds between-subfield inequality that no single subfield
-carries. So the pooled and per-subfield views are **two relations at different
-grains, not one filterable table** — a distinction the models enforce and any
-consumer of them has to respect.
+Five years after publication, 46% of the 2020 AI cohort remained uncited while
+citations among the papers that were reached had the highest cited-only Gini in
+CS, 0.760; CV/PR paired an even lower uncited rate of 35% with similarly high
+inequality. That pairing—not unusually high overall concentration—is the
+result: AI ranks only 3rd–5th of 11 on the all-paper Gini, and pooled “rest of
+CS” is not a like-for-like comparator because mixing subfields introduces
+additional between-subfield inequality. The pattern also hardened from 2012 to
+2020 as AI's cited-only Gini rose from 0.684 to 0.760 while its uncited rate fell
+from 57.6% to 46.4%.
 
 Full results, reconciliation baselines, and the bounds every number was computed
 under: [`FINDINGS.md`](FINDINGS.md). Design rationale and rejected alternatives:
@@ -172,10 +149,11 @@ production automation, since all schedules and sensors default to running.
 
 Infrastructure (bucket, datasets, external table, IAM) lives in `terraform/`.
 
-To regenerate the Q1 chart from the committed gold extract:
+To regenerate the README charts from their committed gold extracts:
 
 ```bash
 uv run python tools/render_q1_chart.py
+uv run python tools/render_q3_chart.py
 ```
 
 ---
@@ -208,7 +186,7 @@ uv run python tools/render_q1_chart.py
 | `dbt/` | staging, silver, and gold models; data and singular tests |
 | `terraform/` | GCS bucket, BigQuery datasets, external table, IAM |
 | `tests/` | Python test suite, mirroring package structure |
-| `assets/` | README chart, and the gold extract it renders from |
+| `assets/` | README charts and the gold extracts they render from |
 | `docs/` | design archive, vendored OpenAlex docs |
 | `OVERVIEW.md` | architecture, contracts, and boundaries in depth |
 | `DECISIONS.md` | design rationale and rejected alternatives |
