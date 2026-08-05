@@ -1,264 +1,386 @@
-# OVERVIEW
+# OVERVIEW.md
 
-> **Derived from `be6d94a` (2026-07-31).** Regenerate if `git log be6d94a..HEAD`
-> touches `src/`, `dbt/`, or `terraform/`; treat as stale until then. Update
-> this line whenever the file is regenerated.
+Architecture, data flow, boundaries, and contracts. Derived from source; read
+this first in any session.
 
-Architectural orientation for the `openalex-pipeline` repository. Derived from
-executable contents (`src/`, `dbt/`, `terraform/`, `tests/`). It is a map, not a
-specification — use it to decide what to read next.
+**Ref:** `bcf48d1` — regenerate when the source it describes moves.
 
-**This file is regenerated from source, not maintained.** It is authoritative
-for nothing; the code is. Prefer regenerating it over patching it.
+For *why* a design is the way it is, see `DECISIONS.md`. For *what the numbers
+are*, see `FINDINGS.md`.
 
-## 1. What the system does
+---
 
-It extracts the OpenAlex **Computer Science works** corpus (server-side filter,
-`primary_topic.field.id:17`), lands it locally, ships it to GCS, and builds
-three question-shaped BigQuery aggregates via dbt:
+## 1. What this is
+
+An end-to-end pipeline over the OpenAlex computer-science corpus (publication
+years 1950–2026), answering three questions:
 
 <!-- prettier-ignore -->
-| Question | Gold model | Grain |
-| --- | --- | --- |
-| Q1 AI's share of CS works | `gold_ai_share_by_year` | `publication_year × variant(strict\|broad)` |
-| Q2 Citation-weighted age of cited works | `gold_citation_age_by_year` | `citation_year × cited_group(ai\|cv_pr\|rest_cs)` |
-| Q3 Citation concentration (Gini/top-k) | `gold_citation_gini_by_subfield` (primary), `gold_citation_gini_by_group` (secondary) | `subfield_id \| cited_group × publication_year × citation_age` |
+| | Question | Gold model |
+|---|---|---|
+| Q1 | AI's share of CS works per publication year | `gold_ai_share_by_year` |
+| Q2 | Citation-weighted age of cited works | `gold_citation_age_by_year` |
+| Q3 | Citation concentration (Gini/top-k) | `gold_citation_gini_by_subfield`, `gold_citation_gini_by_group` |
 
-"AI" is pinned by **stable OpenAlex subfield id**, never display name:
-`ai_strict` = subfield 1702; `ai_broad` = 1702 + 1707 (CV/PR). This ablation
-pair is a load-bearing contract that runs from `dbt_project.yml` vars through
-silver into every gold model.
+Python does extraction and local landing; BigQuery + dbt do the warehouse;
+Dagster orchestrates; Terraform owns the infrastructure.
+
+---
 
 ## 2. Data flow
 
 ```
-OpenAlex API
-  │  extraction/    (Python; per-year shard dirs of JSONL pages + cursor)
-  ▼  {DATA_ROOT}/extract/{year}/{_META,_CURSOR,page-NNNN.jsonl,_YEAR_REPORT}
-bronze/            (Python; JSONL -> one Parquet per year, 21 pinned columns)
-  ▼  {DATA_ROOT}/bronze/{year}.parquet  +  _MANIFEST.parquet
-upload/            (Python; mtime-vs-blob skip logic)
-  ▼  gs://openalex-pipeline-bronze/bronze/publication_year={year}/...
-     gs://.../upload/_MANIFEST.parquet   (deliberately OUTSIDE the hive tree)
-BigQuery external table  openalex_raw.bronze_external   (Terraform-owned)
-  ▼
-dbt: stg_works -> silver_works -> gold_*   (dataset openalex_analytics[_dev])
+OpenAlex API                     (filter: OPENALEX_FILTER, one query per year)
+  → extraction/   data/extract/{year}/page-NNNN.jsonl  + _META/_CURSOR/_YEAR_REPORT
+  → bronze/       data/bronze/{year}.parquet           + _MANIFEST.parquet
+  → upload/       gs://…/bronze/publication_year={year}/{year}.parquet
+                                                        + upload/_MANIFEST.parquet
+  → BigQuery external table  openalex_raw.bronze_external   (Terraform-owned)
+  → dbt staging   stg_works        parse / type / filter / dedup
+  → dbt silver    silver_works     AI classification + projection
+  → dbt gold      gold_*           question-shaped aggregates
 ```
 
-Orchestrated end-to-end by **Dagster** (`orchestration/definitions.py`), but
-every Python stage also has a standalone CLI
-(`python -m openalex_pipeline.{extraction,bronze,upload}`).
+Every stage is both a standalone CLI (`python -m openalex_pipeline.<stage>`) and
+a Dagster asset. Any layer can be run and debugged alone.
 
-## 3. Responsibility boundaries
+**Filesystem as source of truth.** No stage keeps state anywhere but on disk (or
+in GCS blob metadata). File presence and atomic rename are the completion
+signals; both manifests are *derived* artifacts, rebuilt wholesale each run and
+never read back as authority.
 
-Each package is layered leaf → composite, and the layering is enforced by import
-discipline that the module docstrings state explicitly. **Preserve it.**
+---
 
-### `extraction/` — API → JSONL
+## 3. Python packages (`src/openalex_pipeline/`)
 
-- `settings.py` — the _only_ holder of runtime config (env, `OPENALEX_*`
-  prefix).
-- `connector.py` — the single HTTP call + all retry/backoff. Injected into the
-  worker as a callable; the primary test seam (no network in tests).
-- `storage.py` — _all_ filesystem I/O. Five-function contract: `classify_year`,
-  `initialize_year`, `write_page`, `finalize_year`, `read_year_report`. Enforces
-  atomic durable writes, immutability of `_META.json`/`_YEAR_REPORT.json`.
-- `worker.py` — pure state machine over one year; the pagination loop is
-  **pinned** in the docstring (fresh path is
-  `fetch_page → initialize_year → write_page`, so a first-fetch failure leaves
-  nothing on disk).
-- `runner.py` — owns the **canonical query string** (parameter/filter order);
-  pure orchestration, no I/O.
-- `exceptions.py` — two base classes (`ConnectorError`, `StorageError`).
-  `DailyLimitReached` (429) is an _expected clean stop_, not an error.
+### 3.1 `extraction/`
 
-### `bronze/` — JSONL → Parquet
+Paginates the OpenAlex API into JSONL, resumably.
 
-- `schema.py` (leaf) — the 21-column `BRONZE_SCHEMA`, imposed on read, never
-  inferred. Eight nested columns stay **raw JSON strings**; dates stay strings.
-  Scalar dtypes are the integrity check (non-conforming value → ComputeError).
-- `core.py` — year classification (`INGESTED/READY/PENDING`), corpus-level query
-  homogeneity assertion, single-year ingest.
-- `manifest.py` — derived, never authoritative; rebuilt wholesale from disk and
-  deliberately _does not_ reuse `core.classify_year`.
-- `runner.py` — the only module touching both core and manifest.
+- **`settings.py`** — the only runtime-configuration module. Reads
+  `OPENALEX_API_KEY`, `OPENALEX_FILTER`, `OPENALEX_START_YEAR`,
+  `OPENALEX_END_YEAR`, `OPENALEX_DATA_ROOT` (landing zone is
+  `{data_root}/extract`). Everything else is a pinned constant.
+- **`runner.py`** — pure orchestration, no I/O. Owns the canonical query:
 
-### `upload/` — Parquet → GCS
+  ```
+  works?filter={filter},publication_year:{year}&select={SELECT_COLUMNS}&per_page=200
+  ```
 
-Same core/manifest/runner shape. The `Bucket` is **injected**, never constructed
-in `core.py` — one mockable cloud seam.
+  Parameter and filter order are owned here; the connector may append `cursor`
+  and the API key in any order without changing query identity.
+- **`connector.py`** — the single HTTP call plus retry/backoff (5 attempts,
+  exponential from 1.0s, factor 2). The primary test seam: `fetch_page` is
+  injected into the worker, so the suite needs no network.
+- **`worker.py`** — a pure state machine over one year directory. The pinned
+  loop is written out in its module docstring; the fresh-path order
+  `fetch_page → initialize_year → write_page` guarantees a first-fetch failure
+  leaves nothing on disk.
+- **`storage.py`** — all filesystem I/O, five public functions
+  (`classify_year`, `initialize_year`, `write_page`, `finalize_year`,
+  `read_year_report`), all taking `(root, year)` first. Atomic durable writes
+  (tmp + flush + fsync + rename); `_META.json` and `_YEAR_REPORT.json` are
+  immutable once written.
+- **`exceptions.py`** — two base classes by origin: `ConnectorError`,
+  `StorageError`. `DailyLimitReached` is a clean expected stop, not a failure;
+  the runner catches it and returns a partial report
+  (`status="stopped_daily_limit"`). Everything else propagates.
 
-### `orchestration/` — Dagster
+**Year-shard states:** `FRESH → IN_PROGRESS → COMPLETE`. `COMPLETE` is the
+presence of `_YEAR_REPORT.json`. The finalize-pending sub-state (all pages
+written, report owed) is deliberately *not* a fourth enum value — it is
+`IN_PROGRESS` with `cursor is None`. Any file combination outside the three
+legal states raises `CorruptedState`; there is no recovery path.
 
-- `config.py` — resolves existing env vars into `OrchestrationConfig`; adds no
-  new config layer (runners keep owning their own config).
-- `convergence.py` — pure predicates, **no Dagster imports, no writes**. Cloud
-  metadata is passed in by the caller so it stays unit-testable.
-- `cloud.py` — the GCS/BigQuery metadata calls the predicates consume.
-- `lock.py` — `flock` on `{DATA_ROOT}/.orchestration.lock`. Writers take
-  `LOCK_EX` (block); the sensor takes `LOCK_SH|LOCK_NB` and skips if a writer
-  holds it.
-- `invalidate.py` — durable tombstone request/execute protocol for refreshing
-  the in-flight current year.
-- `dbt_prep.py` — parses a current **prod-target** dbt manifest at import time.
-- `definitions.py` — assets, jobs, schedules, sensor.
+### 3.2 `bronze/`
 
-### `dbt/` — warehouse
+JSONL → one Parquet per year.
 
-- `staging/stg_works.sql` — does exactly four things: parse the 8 JSON columns,
-  type the 2 date columns, apply hygiene filters (`is_retracted = false`,
-  `is_paratext = false`, year bounds), dedup on `id` via QUALIFY. No
-  classification, no aggregation.
-- `silver/silver_works.sql` — classification (`is_ai_strict`/`is_ai_broad`) +
-  projection. Same grain as staging, no filter.
-- `gold/*` — question-shaped aggregates only.
-- `macros/q3_paper_windows.sql` — shared cumulative fixed-window expansion used
-  by _both_ Q3 models, so subfield and group grains stay reconcilable.
+- **`schema.py`** (leaf) — `BRONZE_SCHEMA`: **21 columns**, imposed on read, no
+  inference. Eight nested columns (`primary_topic`, `topics`, `counts_by_year`,
+  `cited_by_percentile_year`, `citation_normalized_percentile`, `open_access`,
+  `ids`, `keywords`) land as `pl.String` holding verbatim OpenAlex JSON.
+  `publication_date` and `updated_date` are `pl.String` — date typing is
+  deferred to dbt staging. Scalar dtypes are load-bearing: a non-conforming
+  value raises a Polars `ComputeError` at read.
+- **`core.py`** — year classification (`INGESTED` / `READY` / `PENDING`), the
+  corpus-level query-homogeneity assertion (one landing zone holds exactly one
+  filter/select across all shards), and single-year ingest.
+- **`manifest.py`** — `_MANIFEST.parquet`, re-derived from the filesystem every
+  run. Does *not* import `core`; it re-derives status independently, with the
+  status strings matching `core.YearState` by contract.
+- **`runner.py`** — the only module touching both `core` and `manifest`.
 
-## 4. Contracts between components
+### 3.3 `upload/`
 
-- **Canonical query string** (`extraction/runner.canonical_query`) is the
-  identity of a year shard. It is written to `_META.json`, re-verified on resume
-  (`QueryMismatch`), asserted homogeneous across the corpus by bronze, and
-  recomputed by the convergence predicate. Changing its shape invalidates
-  on-disk state. The API key is deliberately _not_ part of query identity and is
-  never persisted.
-- **Year-shard state machine**: `FRESH → IN_PROGRESS → COMPLETE`; presence of
-  `_YEAR_REPORT.json` means complete. Any other file combination →
-  `CorruptedState`, never silent recovery.
-- **21-column bronze schema** is declared twice and consumed a third time:
-  `bronze/schema.py` (imposed on write), `terraform/bigquery.tf` (pinned
-  external-table schema, read by BigQuery), and
-  `dbt/models/staging/stg_works.sql` (consumed by name). `publication_year`
-  comes from the Hive partition key and must **not** appear in the Terraform
-  schema list. The two _declarations_ are the pair that can drift silently, and
-  `tests/bronze/test_schema_mirror.py` asserts they agree on names, order,
-  types, and nullability. The dbt leg is self-checking — it fails loudly at
-  build time against the real external table. `extraction/runner.SELECT_COLUMNS`
-  is a fourth copy of the column list, requested server-side; it is not covered
-  by that test.
-- **Manifests are derived, never authoritative.** Bronze `_MANIFEST.parquet` and
-  the GCS `upload/_MANIFEST.parquet` are rebuilt wholesale each run. The upload
-  manifest is the _only_ one read back (by the staleness sensor).
-- **Bronze count invariant**: `records_fetched == bronze_row_count` per ingested
-  year, re-asserted on every manifest rebuild (`IntegrityError`).
-- **Upload skip rule**: skip iff blob exists and `blob.updated >= local mtime`.
-  The same `should_skip` function is reused by `convergence.is_converged`.
-- **dbt asset wiring**: `OpenAlexDbtTranslator` remaps the dbt source
-  `bronze.bronze_external` to the Dagster asset key `bronze_gcs`, which is what
-  joins the Python chain to the dbt graph. Breaking that mapping severs the
-  graph.
-- **Materializations** are restricted to `table`/`view`; anything else raises
-  `UnsupportedDbtMaterialization` from `dbt_model_relations`.
-- **`gold_citation_age_by_year` has an enforced dbt contract** (`_gold.yml`) —
-  its column types are a hard interface.
+Bronze Parquet → GCS, skip-aware.
 
-## 5. Execution and verification
+- Object layout: `bronze/publication_year={year}/{year}.parquet`. The Hive
+  prefix exists solely for BigQuery partition pruning.
+- Skip decision is local mtime vs. blob metadata.
+- The GCS bucket is **injected**, never constructed in `core` — one mockable
+  cloud seam.
+- `upload/_MANIFEST.parquet` sits deliberately *outside* the `bronze/` tree
+  BigQuery globs, so it can never be mistaken for a partition. Uploaded last,
+  so its presence signals a complete run.
+- Same sibling split as bronze: `core` and `manifest` are independent; only
+  `runner` touches both.
 
-**Environment.** `direnv` (`.envrc`) loads `.env` and points `DAGSTER_HOME` at
-`.dagster/`, symlinking the tracked root `dagster.yaml`. Python is managed by
-`uv` (3.12+). GCP auth is **ADC impersonating `dbt-runner@…`** — no key files
-anywhere.
+### 3.4 `orchestration/`
 
-**Run it.**
+Dagster. See §6.
 
-```
-python -m openalex_pipeline.extraction        # API -> JSONL (resumable, daily-limit aware)
-python -m openalex_pipeline.bronze            # JSONL -> Parquet + manifest
-python -m openalex_pipeline.upload            # Parquet -> GCS + manifest
-dbt build --project-dir dbt                   # target defaults to dev
-dagster dev                                   # full orchestration UI
-```
+---
 
-**Dagster topology** (`definitions.py`):
+## 4. Warehouse (`dbt/`)
 
-- assets `extracted_jsonl → bronze_parquet → bronze_gcs → openalex_dbt_assets`
-- job `local_sweep` (first three assets) — daily cron `0 4 * * *` Europe/Berlin
-- job `invalidate_refresh_year` — monthly `0 3 1 * *`, tombstones the current
-  year
-- job `warehouse_build` (dbt assets), triggered _only_ by
-  `warehouse_staleness_sensor` (≥4h interval): skips if a build is in flight, if
-  the local lock is held, if local/GCS is not converged, or if the warehouse is
-  fresh. Run key is the latest upload timestamp; `dagster/max_retries: 3`.
+Profile `openalex` lives in-repo at `dbt/profiles.yml` (found via
+`DBT_PROFILES_DIR=dbt`). Auth mirrors Terraform: OAuth ADC impersonating
+`dbt-runner@…`, no key file. **Target defaults to `dev`** — a bare `dbt build`
+can never touch prod. `maximum_bytes_billed` is 100 GiB per job on both targets.
 
-**Testing.** 255 pytest tests under `tests/`, mirroring package structure. No
-network and no cloud: the connector callable and the GCS `Bucket` are injected
-seams; `responses` and `freezegun` are dev deps.
-`tests/bronze/test_schema_mirror.py` is the one test that reads outside `src/` —
-it parses `terraform/bigquery.tf`. dbt verification is substantial — 25 singular
-tests in `dbt/tests/` (reconciliation, ordering, cohort floors, cross-grain
-agreement) plus schema tests in `_gold.yml`/`_silver.yml`. Lint/type: `ruff`,
-`pyright`.
+<!-- prettier-ignore -->
+| Target | Dataset |
+|---|---|
+| `dev` | `openalex_analytics_dev` |
+| `prod` | `openalex_analytics` |
 
-**Cost guards** worth knowing before running anything against prod:
-`maximum_bytes_billed = 100 GiB` per job in `profiles.yml`; physical storage
-billing with 48h time travel on the analytics datasets; `profiles.yml` default
-target is `dev` so a bare `dbt run` never touches prod.
+### 4.1 Layer boundaries
 
-## 6. Constraints a change must preserve
+Each layer does exactly one job, and the boundaries are stated in the model
+headers:
 
-1. Do not add filesystem I/O outside `extraction/storage.py`, and do not
-   construct a GCS client outside `cloud.py` / the CLI entrypoints.
-2. Do not let `core` import `manifest` (bronze, upload) — runners are the only
-   join point.
-3. Do not put Dagster imports into `orchestration/convergence.py` or pass it
-   live cloud clients; predicates stay pure.
-4. Any local-data mutation from Dagster must happen inside
-   `local_data_lock(..., EXCLUSIVE)`.
-5. Bronze parses nothing nested and types no dates — that is staging's job.
-   Staging classifies nothing — that is silver's job. Silver aggregates nothing.
-6. Changing the bronze schema requires an explicit external-table recreation:
-   `terraform apply -replace=google_bigquery_table.bronze_external` (the
-   `ignore_changes = [schema]` lifecycle block means a schema edit produces
-   **no** plan diff).
-7. The GCS `upload/` manifest prefix must stay outside
-   `bronze/publication_year=*/` or BigQuery will read it as a partition.
-8. Preserve atomic-write discipline (tmp → fsync → rename) for every artifact a
-   later stage treats as "exists ⇒ complete".
-9. Extraction ordering on the fresh path must not be reordered (nothing on disk
-   before a successful first fetch).
+- **`stg_works`** (table, partitioned on `publication_year`, clustered on
+  `primary_topic_subfield_id`) — does four things and nothing else: parse the
+  eight JSON-string columns, type the two date columns, apply the corpus-hygiene
+  filters, deduplicate on `id`. No classification, no aggregation.
+  - Filters: `is_retracted = false and is_paratext = false` (the `= false` form
+    also drops NULL-status rows, deliberately) and the `year_min`/`year_max`
+    bounds guard, which is also what prunes external-read partitions.
+  - Dates use `safe.parse_*` so a malformed value yields NULL rather than
+    failing the model; singular tests assert the parse-failure count is ~0.
+  - Dedup: `qualify row_number() over (partition by id order by updated_date
+    desc nulls last) = 1`. Deferred from bronze because it needs the parsed
+    `updated_date`.
+  - `counts_by_year` is kept **nested and typed**, never pre-aggregated — Q2 and
+    Q3 both consume it.
+- **`silver_works`** (same grain, same partition/cluster) — AI classification
+  plus projection. No filter, no aggregation: trust the layer below. Adds
+  `is_ai_strict` / `is_ai_broad`, kept strictly boolean via `coalesce(…, false)`
+  so a NULL subfield is non-AI and stays in the CS denominator.
+- **`gold_*`** (tables, tiny, unpartitioned) — one model per question shape.
 
-## 7. Uncertainty, inconsistency, known limitations
+### 4.2 Vars (the pinned contract)
 
-- **Comments and docstrings are self-contained by convention.** They state
-  invariants and reasons; they do not cite documents. Two deliberate exceptions:
-  code-to-code references, and cross-file contract mirrors (which name their
-  counterparts on purpose). See `AGENTS.md` for the rule. Consequence for
-  regeneration: the _why_ behind a constraint may live only in `DECISIONS.md`,
-  not next to the code that enforces it.
-- **No README.md yet** despite `pyproject.toml` declaring
-  `readme = "README.md"`. Being written separately.
-- **No CI configuration** in the repo; verification is local-only.
-- **`docs/design-archive/` holds ten implemented and superseded design
-  contracts.** They are archaeology, not current specification — several
-  describe relations that no longer exist (`int_paper_half_life`,
-  `gold_citation_half_life_by_subfield`) or bounds since advanced. Read them
-  only when `DECISIONS.md` fails to explain something.
-- **`extraction/runner.SELECT_COLUMNS` is an unguarded fourth copy of the bronze
-  column list.** Changing it without changing `bronze/schema.py` breaks
-  ingestion at read time rather than at edit time.
-- **Q2 dev values do not preview prod.** `dbt_project.yml` states this
-  explicitly: the dev 2012–2016 slice omits older cited works, so dev Q2 numbers
-  are structurally valid but not representative. Q3 dev _is_ an exact
-  overlapping-cohort preview.
-- **Three independent year-bound var families** (`year_min/max`,
-  `citation_age_year_min/max`, `gini_cohort_min`/`gini_citation_year_max`) that
-  are advanced manually and only after a full-corpus refresh + prod
-  reconciliation. Easy to desynchronize; check all three when changing bounds.
-- **Known data caveats baked into staging**: works with NULL `is_retracted` are
-  conservatively dropped by `= false`; at least one duplicate `id` exists and
-  dedup is deferred from bronze to staging; `__unclassified__` in the Q3
-  subfield model is a synthetic bucket, not a real subfield. Current counts and
-  reconciliation baselines are in `FINDINGS.md` — do not restate them here,
-  since this file is regenerated and would carry a stale copy.
-- **Q2/Q3 quantiles are discrete integer years** — `counts_by_year` supports no
-  within-year interpolation. Age 0 is diagnostic-only in Q3.
-- **`scripts/` is largely superseded.** `openalex_downloader.py` and
-  `bronze_ingest_spike.py` predate `src/openalex_pipeline/` and duplicate its
-  concerns; `notebooks/` is exploratory. Do not treat either as current
-  architecture.
-- **Dagster instance state is disposable** (`.dagster/` is untracked); only
-  `dagster.yaml` at the root is canonical.
-- Importing `orchestration/definitions.py` runs `prepare_dbt_project` as a side
-  effect — a dbt parse at module import. Any tooling that imports it needs a
-  working dbt project and profile.
+<!-- prettier-ignore -->
+| Var | Prod value | Meaning |
+|---|---|---|
+| `year_min` / `year_max` | 1950 / 2026 | corpus publication bounds |
+| `subfield_ai` | subfield `1702` | Artificial Intelligence |
+| `subfield_cv_pr` | subfield `1707` | Computer Vision and Pattern Recognition |
+| `citation_age_year_min` / `_max` | 2012 / 2025 | Q2 citation-year window |
+| `gini_cohort_min` | 2012 | Q3 earliest cohort |
+| `gini_citation_year_max` | 2025 | Q3 window ceiling |
+| `partial_year` | 2026 | year Q1 flags as in-flight |
+
+**AI is pinned by stable subfield id, never display name.** The id is the stable
+upstream key; the name is a presentation string. Both variants are carried
+through every downstream model, so each result has a built-in sensitivity check.
+
+**The three year-bound families are independent and advance independently.**
+Corpus bounds, Q2 citation bounds, and Q3 window bounds are separate vars on
+purpose: citation histories live on cited works across every publication shard,
+so current-year-only automation cannot extend Q2 or Q3. Q3's latest usable
+cohort is *derived* as `gini_citation_year_max - 1`, not configured. Q3's 2012
+floor is forced by the rolling `counts_by_year` window — earlier cohorts would
+fabricate zero-citation papers.
+
+Dev slice: `dbt run --vars '{year_min: 2012, year_max: 2016}'` — an exact
+overlapping-cohort preview for Q3, a cheap structural target for Q2 (dev Q2
+values do **not** preview prod, since the slice omits older cited works).
+
+### 4.3 Gold grains
+
+- **`gold_ai_share_by_year`** — `publication_year × variant` (`strict`/`broad`),
+  long so a dashboard toggle is a filter, not a pivot. Six enforced columns:
+  `publication_year, variant, cs_works, ai_works, share, is_partial_year`. No
+  cohort restriction — a within-year ratio is immune to the citation-window
+  confound.
+- **`gold_citation_age_by_year`** — `citation_year × cited_group`, where
+  `cited_group ∈ {ai, cv_pr, rest_cs}` is mutually exclusive and classifies the
+  **cited** work, not the unknown citing work. Ages are discrete integer years
+  (the source is annual), so quantiles are the smallest age whose cumulative
+  event weight reaches q — no within-year interpolation is supported.
+- **`gold_citation_gini_by_subfield`** — `subfield_id × publication_year ×
+  citation_age` (primary Q3 relation). `citation_age` is the *cumulative* window
+  of complete calendar years 1..n after publication; every paper stays in every
+  observable window, uncited papers included. `__unclassified__` is a synthetic
+  bucket preserving the silver denominator, not a real subfield. Age 0 is
+  excluded from the measures and exposed via `age0_citation_share` and
+  `zero_share_including_age0`.
+- **`gold_citation_gini_by_group`** — `cited_group × publication_year ×
+  citation_age`, the *secondary pooled* comparison. `rest_cs` pools many
+  subfields, so it is **not** a like-for-like substitute for the subfield
+  relation: the two are two relations at different grains, not one filterable
+  table. Consumers must respect that.
+
+Both Q3 models share `macros/q3_paper_windows.sql`. Gini uses exact integer
+value frequencies; top-k shares take `ceil(k * n_papers)` from the full cohort
+and allocate tied boundary frequencies so the result is independent of paper
+ordering.
+
+### 4.4 Tests
+
+116 dbt data tests (schema-level: uniqueness, not-null, accepted values,
+accepted ranges, expression checks) plus 25 singular tests in `dbt/tests/` —
+cross-grain reconciliation, cohort floors, quantile/share ordering, triangle
+completeness, identity constraints, and date-parse assertions. One
+(`warn_citation_age_negative_entries`) is an expected warning, not a failure.
+
+---
+
+## 5. Infrastructure (`terraform/`)
+
+- **Bucket** `openalex-pipeline-bronze`, location `EU`.
+- **Datasets** (all `EU`, which must match the bucket):
+  - `openalex_raw` — GCS-handoff namespace, holds only the external table.
+    `delete_contents_on_destroy = false` as a loud guard.
+  - `openalex_analytics`, `openalex_analytics_dev` — dbt targets;
+    rebuildable, so `delete_contents_on_destroy = true`. Both use
+    `PHYSICAL` storage billing with `max_time_travel_hours = 48`.
+- **`bronze_external`** — external table over the Hive-partitioned Parquet.
+  Schema is **pinned, not autodetected**, and mirrors `bronze.schema.BRONZE_SCHEMA`.
+  `publication_year` comes from the partition key and must not appear in the
+  declared schema. A `lifecycle { ignore_changes }` block suppresses the
+  permanent API-side diff — with the consequence that a deliberate schema change
+  produces **no plan diff** and requires
+  `terraform apply -replace=google_bigquery_table.bronze_external`.
+- **IAM** — no credentials on disk. ADC impersonates the `dbt-runner` service
+  account; the caller's ADC must hold `tokenCreator` on it.
+
+### The three-place schema contract
+
+The bronze schema is declared in three places and pinned in all three:
+
+1. `src/openalex_pipeline/bronze/schema.py` (Polars)
+2. `terraform/bigquery.tf` (external-table schema)
+3. `dbt/models/staging/stg_works.sql` (the parse)
+
+`tests/bronze/test_schema_mirror.py` parses the Terraform file and asserts it
+agrees with the Python schema on names, order, types, and nullability — those
+two can drift silently. The dbt leg fails loudly on its own.
+
+---
+
+## 6. Orchestration (`src/openalex_pipeline/orchestration/`)
+
+**Convergence-based, not schedule-based.** Importing `definitions.py` is a
+startup action: it prepares a current prod-target dbt manifest (serialized on
+`dbt/.prepare.lock`, always re-parsed) before Dagster reads the asset graph.
+
+**Assets:** `extracted_jsonl → bronze_parquet → bronze_gcs → openalex_dbt_assets`.
+The dbt `bronze` source is remapped by `OpenAlexDbtTranslator` onto the
+`bronze_gcs` asset key, so the graph is continuous across the Python/dbt seam.
+
+**Jobs, schedules, sensors** — all default to `RUNNING`:
+
+<!-- prettier-ignore -->
+| Trigger | Cadence | Effect |
+|---|---|---|
+| `local_sweep_schedule` | `0 4 * * *` Europe/Berlin | extraction → bronze → upload |
+| `invalidate_refresh_year_schedule` | `0 3 1 * *` Europe/Berlin | request invalidation of the current year |
+| `warehouse_staleness_sensor` | every 4h | request one prod `dbt build`, max 3 retries |
+
+**Locking.** `data/.orchestration.lock`: writers take `LOCK_EX` and block;
+the sensor takes `LOCK_SH | LOCK_NB` and skips immediately if a writer holds it.
+
+**The sensor's predicate chain** (any failure is a `SkipReason`, not an error):
+
+1. no `warehouse_build` already in flight;
+2. lock acquired shared;
+3. `is_converged(...)` — no pending invalidation tombstone, and every expected
+   year has COMPLETE extraction, local bronze Parquet, and matching GCS state;
+4. `warehouse_is_stale(...)` — every expected dbt relation exists, and
+   `max(uploaded_at) > min(modified)` over expected **tables** only (view
+   timestamps do not participate in freshness).
+
+Run key is the latest upload timestamp, so one converged state produces one build.
+
+**Invalidation** is a durable request/executor protocol: the monthly job writes
+an `_INVALIDATING_{year}` tombstone (non-destructive), and the next extraction
+run executes it under the exclusive lock before extracting. Malformed or
+out-of-bounds tombstones raise `TombstoneCorruption`.
+
+**Typed failures:** `TombstoneCorruption`, `UploadManifestInvalid`,
+`UnsupportedDbtMaterialization` (only `table`/`view` are supported),
+`WarehouseMetadataInvalid`.
+
+⚠️ `dagster dev` is not a harmless graph viewer — it starts the production
+automation, since all three triggers default to `RUNNING`.
+
+---
+
+## 7. Verification
+
+- **255 pytest tests**, no network and no cloud calls (the HTTP connector and
+  the GCS bucket are injected seams). `tests/` mirrors the package structure.
+- **116 dbt data tests + 25 singular tests** (see §4.4).
+- Clean under `ruff check`, `ruff format --check`, and `pyright`.
+- **CI** (`.github/workflows/ci.yml`, on push to `main` and every PR): ruff
+  lint, ruff format, pyright, pytest, `dbt deps`, `dbt parse`, and
+  `dagster definitions validate` — no GCP credentials required
+  (`OPENALEX_GCP_PROJECT` is a placeholder; nothing authenticates or queries).
+
+---
+
+## 8. Configuration surface
+
+All env vars are in `.env.example`; `.envrc` (direnv) exports them and sets up
+`DAGSTER_HOME`.
+
+<!-- prettier-ignore -->
+| Var | Consumer |
+|---|---|
+| `OPENALEX_API_KEY` | extraction connector — credential; never logged, written, or part of query identity |
+| `OPENALEX_FILTER` | extraction runner — filter expression *without* `publication_year` and *without* `filter=` |
+| `OPENALEX_START_YEAR` / `_END_YEAR` | extraction bounds, and the year set orchestration expects |
+| `OPENALEX_DATA_ROOT` | all local layers (`{root}/extract`, `{root}/bronze`) |
+| `OPENALEX_GCS_BUCKET` | upload, orchestration |
+| `OPENALEX_GCP_PROJECT` | dbt `profiles.yml` and `_sources.yml` |
+| `DBT_PROFILES_DIR` | `dbt` (in-repo, non-default profile location) |
+| `DBT_LOG_PATH` | `dbt/logs` — otherwise dbt drops `logs/` at the repo root |
+
+---
+
+## 9. Repository map
+
+<!-- prettier-ignore -->
+| Path | Contents |
+|---|---|
+| `src/openalex_pipeline/` | `extraction/`, `bronze/`, `upload/`, `orchestration/` |
+| `dbt/` | staging, silver, gold models; `macros/`; `tests/` (singular); in-repo `profiles.yml` |
+| `terraform/` | bucket, three datasets, external table, IAM |
+| `tests/` | pytest suite, mirroring the package structure |
+| `scripts/`, `notebooks/` | exploration and diagnostics; not part of the pipeline |
+| `tools/` | `render_q1_chart.py`, `context_size.py` |
+| `assets/` | committed Q1 gold extract and the rendered charts |
+| `docs/dashboard-spec.md` | the remaining layer (Streamlit over gold), spec only |
+| `docs/design-archive/`, `docs/openalex/` | archaeology; vendored upstream docs |
+
+---
+
+## 10. Current state and known gaps
+
+- The pipeline is complete through gold and reconciled at full corpus. The
+  **Streamlit dashboard is the one unbuilt layer** (`docs/dashboard-spec.md`).
+- **Automation refreshes the current publication year only.** It does not
+  extend Q2 citation windows or Q3 cohorts, and does not re-run classification.
+  Advancing those bounds is a deliberate manual operation, done only after a
+  full reconciliation.
+- **Year rollover is manual**, requiring coordinated changes to the extraction
+  bounds and the dbt year vars.
+- **Q3's earliest cohorts may become unrebuildable**: OpenAlex's per-year
+  citation counts are a rolling window, so a future re-extraction may drop the
+  earliest citation years. No mitigation is in place.
+- The most recent cohort carries a settling caveat a single snapshot cannot
+  fully resolve; see `FINDINGS.md`.
