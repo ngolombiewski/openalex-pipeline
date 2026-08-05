@@ -38,7 +38,8 @@ grain. It is never presented as another filter over the subfield relation.
 - Fixed, application-owned BigQuery queries followed by in-memory filtering.
 - A small number of question-specific controls with explicit defaults.
 - Responsive, theme-aware, accessible charts and tabular equivalents.
-- Terraform-owned runtime infrastructure, identity, IAM, and cost controls.
+- Terraform-owned runtime infrastructure, identity, IAM, and the spend guards
+  named in §13.4.
 - Four independently deployable waypoints, each followed by user review.
 
 ### 2.2 Out of scope
@@ -113,6 +114,12 @@ All four complete results are small enough to load into memory. Browser
 interactions filter and reshape those cached frames and do not issue additional
 queries.
 
+Loaded relations are **pandas** frames. This is a deliberate local exception to
+the repository's Polars idiom, confined to the dashboard package: the BigQuery
+client materializes to pandas and Altair consumes it natively, so converting to
+Polars and back would add a translation layer that buys nothing. No dashboard
+module imports Polars.
+
 <!-- prettier-ignore -->
 | Relation | Required columns | Expected production grain |
 |---|---|---|
@@ -137,16 +144,27 @@ has:
 - one cached entry for the complete dashboard snapshot; and
 - no disk persistence.
 
-One cache miss performs the four fixed BigQuery jobs. With Cloud Run capped at
-one instance, traffic cannot multiply warehouse jobs across an unbounded number
-of processes. A failed refresh remains a failure; the application does not
-silently substitute an expired snapshot.
+One cache miss performs the four fixed BigQuery jobs. A failed refresh remains a
+failure; the application does not silently substitute an expired snapshot.
+
+The TTL is not the main thing bounding warehouse jobs, and the spec should not
+pretend otherwise. With minimum instances 0, Cloud Run scales to zero on idle
+and the process-local cache dies with the container, so on a low-traffic public
+service most first visits pay a cold start plus four fresh queries regardless of
+TTL. The real bound is that the queries are fixed, tiny, and capped: the four
+gold relations total a few thousand rows, and `maximum_bytes_billed` caps each
+job. Capping instances at one additionally prevents concurrent traffic from
+multiplying those jobs across processes. Cold-start refreshes are accepted, not
+engineered away; raising minimum instances to 1 would trade continuous cost for
+latency the audience does not need.
 
 The UI describes freshness through the bounds present in gold:
 
 - Q1 visibly identifies the row marked `is_partial_year`.
 - Q2 says "Snapshot through citation year {maximum loaded citation year}."
-- Q3 says "Citations observed through {maximum cohort + citation age}."
+- Q3 states the bound implied by the **active selection**, not the relation
+  maximum: "Citations observed through {selected cohort + selected window}." A
+  2015 cohort at a three-year window reads 2018, not 2025.
 
 It does not label BigQuery table modification time as analytical freshness.
 
@@ -154,7 +172,12 @@ It does not label BigQuery table modification time as analytical freshness.
 
 The Overview is a compact reading path through the three results. Each delivered
 question has one panel containing a miniature version of its primary visual, a
-one-sentence finding, its relevant time bound, and a link to the full page.
+one-sentence finding, its relevant time bound, its load-bearing qualification,
+and a link to the full page.
+
+A qualification that must travel with a result travels with every rendering of
+that result, including a miniature one. The Overview may compress the wording;
+it may not drop the qualification and defer it to the linked page.
 
 The final Overview contains:
 
@@ -164,6 +187,8 @@ The final Overview contains:
 - A dashed or otherwise interrupted segment to the partial year.
 - Finding: AI's share of CS output is at an all-time high after a long decline
   and renewed rise.
+- Qualification: OpenAlex assigns topics retroactively, so the historical series
+  shows how today's taxonomy classifies earlier work.
 
 ### Q2 panel
 
@@ -171,6 +196,8 @@ The final Overview contains:
   groups.
 - Finding: by 2025, median citation attention in every group had moved to work
   no more than five years old.
+- Qualification: a snapshot through citation year 2025, classified by the work
+  receiving the citation.
 
 ### Q3 panel
 
@@ -178,6 +205,8 @@ The final Overview contains:
   README.
 - Finding: AI and CV/PR pair relatively broad citation reach with highly
   concentrated winnings among the papers that are cited.
+- Qualification: one publication cohort observed over five complete
+  post-publication years, excluding the publication year itself.
 
 The Overview has no controls. It is a summary, not a second copy of the detailed
 pages.
@@ -285,10 +314,13 @@ is the load-bearing view for the headline result.
 | Complete years observed | Ages available for the selected cohort | 5 | Selects one cumulative ages-1..N window |
 | Concentration measure | Cited-only Gini, All-paper Gini, Top 1% share, Top 5% share, Top 10% share | Cited-only Gini | Selects the y-axis metric |
 
-Changing cohort recomputes the valid window options from published cells. If a
-previous window is unavailable, the control moves to the largest available
-window and displays a short notice. An unavailable cohort/window pair is never
-queried or rendered as missing data.
+Cohort is the controlling dimension. Every cohort published in gold is always
+selectable; the window options are recomputed from the cells published for the
+selected cohort. If the previously selected window is unavailable under the new
+cohort, the control moves to the largest available window and displays a short
+notice. The dependency never runs the other way: selecting a window never
+removes a cohort from the cohort control. An unavailable cohort/window pair is
+therefore unreachable, and is never queried or rendered as missing data.
 
 The detail table shows subfield, papers, citations, uncited share, both Ginis,
 and all three top-k shares for the selected cell.
@@ -330,8 +362,8 @@ The heatmap plots the complete observable triangle for one selected subfield:
 - rows: publication cohort;
 - columns: cumulative complete years after publication;
 - cell colour: selected metric; and
-- cell tooltip: cohort, observation window, paper count, citation count, and
-  exact metric value.
+- cell tooltip: cohort, observation window, the citation year the cell is
+  observed through, paper count, citation count, and exact metric value.
 
 <!-- prettier-ignore -->
 | Control | Options | Default |
@@ -345,8 +377,13 @@ subfield does not rescale colours to that subfield alone. The colour domain is
 the observed global min-to-max range for the selected metric across classified
 subfields, making the selected heatmaps comparable.
 
-The text states that every window is cumulative ages 1..N, the latest diagonal
-ends in citation year 2025, and terminal cells may still be settling.
+The text states that every window is cumulative ages 1..N and that terminal
+cells may still be settling. Because the heatmap shows the whole triangle at
+once rather than one selected cell, its observation bound is the diagonal
+itself: each cell is observed through `cohort + window`, and the terminal
+diagonal ends at the Q3 window ceiling. The tooltip therefore carries the
+per-cell bound, and no single global "observed through" year is displayed over
+the grid.
 
 ### 8.5 Age-0 diagnostics
 
@@ -384,6 +421,9 @@ This page is explanatory, not interactive. It contains:
 - Q2's citation-event weighting and cited-side classification;
 - Q3's cumulative complete-year windows, uncited-paper inclusion, age-0
   exclusion, and pooled-grain warning;
+- the negative-age exclusion: a small share of upstream records carry citation
+  years before their own publication year, they are excluded from both Q2 and
+  Q3 by contract, and the excluded weight is roughly one percent;
 - the current bounds derived from loaded gold; and
 - a link back to the repository's full findings and design rationale.
 
@@ -403,6 +443,12 @@ remain in `FINDINGS.md`.
 - Every primary visual has an adjacent table representing the active state.
 - Controls use presentation names, never raw column names or URL-form subfield
   ids.
+- Shortened subfield labels are an application-owned mapping keyed on
+  `subfield_id`, not a substring of `subfield_display_name`. "Computer Graphics"
+  is the application's short form of the published "Computer Graphics and
+  Computer-Aided Design". An id with no short form falls back to its full
+  published display name, so a new subfield renders correctly rather than
+  disappearing.
 - The application follows the active Streamlit light/dark theme.
 - Layout remains readable at a single-column mobile width; secondary columns
   stack rather than shrink charts below legibility.
@@ -422,7 +468,8 @@ cloud access separate from presentation:
 src/openalex_pipeline/dashboard/
   app.py              Streamlit entry point and navigation
   data.py             fixed queries, BigQuery client seam, cached snapshot load
-  models.py           dashboard snapshot and typed dashboard-data exceptions
+  snapshot.py         the dashboard snapshot type and its accessors
+  exceptions.py       typed dashboard-data exceptions
   charts.py           question-specific chart constructors
   pages/
     overview.py
@@ -436,6 +483,9 @@ Tests mirror this structure under `tests/dashboard/`. The modules are specific
 to these four relations; there is no generic repository, chart registry, page
 plugin system, or dashboard framework abstraction.
 
+There is no `models.py`: in this repository "model" means a dbt model, and the
+established package convention is a dedicated `exceptions.py`.
+
 Public functions receive their data or BigQuery client explicitly. Importing a
 page module performs no query. Streamlit owns caching at the application edge;
 the data loader itself remains callable and testable without Streamlit or a
@@ -445,9 +495,39 @@ Chart constructors return declarative chart objects from supplied in-memory
 data. They do not query, cache, read environment variables, or mutate session
 state.
 
-The anticipated direct dependencies are Streamlit, Altair, and the BigQuery
-Python client. They require explicit approval before implementation because they
-are not currently declared in `pyproject.toml`.
+### 11.1 Dependencies
+
+The runtime needs Streamlit, Altair, the BigQuery Python client, and pandas.
+Only one of those is genuinely new to the environment:
+
+<!-- prettier-ignore -->
+| Package | Current status | Ask |
+|---|---|---|
+| `streamlit` | absent | **new top-level dependency** |
+| `altair` | absent | arrives with Streamlit; declare it directly because charts import it |
+| `google-cloud-bigquery` | already resolved in `uv.lock` via `dbt-bigquery`, with the `pandas` extra | promote transitive → direct |
+| `pandas`, `pyarrow` | already resolved in `uv.lock` via the same path | none; already installed |
+
+So the approval decision is about adding Streamlit, plus making two existing
+transitive packages explicit. That is a smaller change than "three new
+dependencies," and it is worth deciding on the accurate version.
+
+They still require explicit approval before implementation. Nothing is added to
+`pyproject.toml` until that approval is given.
+
+### 11.2 Dependency group and image scope
+
+The dashboard's packages go in a dedicated `dashboard` dependency group, not
+into the base `[project.dependencies]`. The container image installs **only**
+that group plus the `openalex_pipeline.dashboard` package.
+
+This is load-bearing rather than tidiness. The base dependency set carries
+Dagster, the Dagster webserver, dbt-core, dbt-bigquery, DuckDB, and the GCS
+client — hundreds of megabytes, none of it reachable from a dashboard process.
+Installing the project wholesale would ship the entire orchestration and
+warehouse toolchain into a public container to render four small tables. The
+image must not contain Dagster, dbt, DuckDB, or the GCS client, and a build that
+does is a failed build, not a large one.
 
 ## 12. Error behavior
 
@@ -473,16 +553,29 @@ No exception path returns fabricated values, partial relations, or stale data.
 - Public invocation: `allUsers` receives Cloud Run invoker only.
 - Minimum instances: 0.
 - Maximum instances: 1.
-- Container: 1 vCPU, 512 MiB memory, port 8080.
+- Container: 1 vCPU, 1 GiB memory, port 8080.
+- Container concurrency: 8. Request timeout: 120 s. Both are pinned rather than
+  inherited from Cloud Run defaults.
 - The service receives `OPENALEX_GCP_PROJECT`; the production dataset remains
   pinned in code.
 - The container runs Streamlit headlessly on `0.0.0.0:8080`.
 - No secrets, service-account keys, volumes, or writable persistent storage are
   mounted.
 
+Memory is 1 GiB because Streamlit, pandas, and pyarrow are all resident at once;
+512 MiB leaves no headroom above their baseline. If a measured cold start shows
+otherwise, dropping to 512 MiB is a later, evidence-backed change.
+
 The browser receives no Google credentials. Cloud Run supplies Application
 Default Credentials to the server process through the attached runtime service
 account.
+
+**Accepted availability risk.** The service is public, unauthenticated, capped
+at one instance, and has no rate limiting or Cloud Armor policy. A single client
+can therefore saturate it. This is accepted: the dashboard is a portfolio
+artifact, an outage is not an incident, and the alternative is infrastructure
+the audience does not justify. The risk is bounded by §13.4, which caps what a
+saturating client can cost rather than preventing the saturation.
 
 ### 13.2 Runtime identity
 
@@ -501,11 +594,43 @@ application image is built from a repository Dockerfile, tagged immutably with
 the git commit SHA, and pushed explicitly. Terraform receives that immutable
 image reference and creates the corresponding Cloud Run revision.
 
+The Dockerfile installs the `dashboard` dependency group only, from the
+committed `uv.lock` so the image resolves to the same versions the test suite
+ran against. It copies `src/openalex_pipeline/dashboard/` and its package
+`__init__`, not the whole source tree, and it runs as a non-root user. A build
+that pulls Dagster, dbt, DuckDB, or the GCS client into the image has violated
+§11.2 and must be fixed rather than shipped.
+
 The initial Artifact Registry bootstrap precedes the first image push; the Cloud
 Run resource is applied only after that image exists. Subsequent waypoint
 deployments reuse the same public service URL and advance only its immutable
 image reference. Continuous deployment is deliberately deferred: a reviewed
 waypoint is promoted by an explicit build, push, plan, and apply.
+
+### 13.4 Spend guards
+
+This is the first surface in the project where cumulative cost is influenced by
+an anonymous third party, so the per-job circuit breaker the warehouse relies on
+is not sufficient on its own. `maximum_bytes_billed` caps one query; it says
+nothing about how many queries a visitor can trigger. Terraform therefore owns
+three layers:
+
+<!-- prettier-ignore -->
+| Guard | Value | Bounds |
+|---|---|---|
+| `maximum_bytes_billed` per dashboard query | 100 MiB | cost of any single query |
+| Cloud Run maximum instances | 1 | concurrent compute, and concurrent query fan-out |
+| BigQuery custom quota on the dashboard service account | daily bytes-billed ceiling | total warehouse spend a visitor can drive in a day |
+
+A project-level budget alert covers what the quota does not: it notifies rather
+than blocks, and it exists so an unexpected pattern is noticed within a day
+instead of at the end of the month. The quota is set on the `dashboard-runner`
+service account specifically, so exhausting it takes the dashboard down without
+touching dbt, Dagster, or any pipeline job.
+
+Blast radius if the dashboard is scraped continuously: the queries are fixed and
+small, the instance cap serializes them, and the daily quota terminates them.
+The failure mode is an unavailable dashboard, not an unbounded bill.
 
 ## 14. Verification contract
 
@@ -523,11 +648,19 @@ Required coverage includes:
 - default controls and conditional-control visibility;
 - partial-year rendering;
 - Q2 group and threshold mappings;
-- Q3 cohort/window validity and equal-window trend filtering;
+- Q3 cohort/window validity, including that changing cohort never leaves an
+  unavailable window selected and that changing window never removes a cohort;
+- the Q3 observation bound derived from the active selection, asserted on a
+  non-default cohort/window pair so a hardcoded relation maximum fails;
+- equal-window trend filtering;
+- the subfield short-label mapping, including fallback to the published display
+  name for an unmapped id;
 - exclusion of `__unclassified__` from analytical views;
 - separation of subfield and pooled data paths;
 - blank, not zero, heatmap cells outside the observable triangle;
-- age-0 diagnostics without a false global inclusion toggle; and
+- age-0 diagnostics without a false global inclusion toggle;
+- the presence of each required qualification on both the Overview panel and the
+  full page for every delivered question; and
 - Streamlit page smoke tests using committed fixtures.
 
 Every waypoint runs at least:
@@ -541,9 +674,10 @@ terraform fmt -check -recursive terraform
 terraform validate
 ```
 
-The container image must build locally. After deployment, a smoke check confirms
-that the public service returns successfully and that each delivered page loads
-from production gold.
+The container image must build locally, and its installed package list is
+checked against §11.2: Dagster, dbt, DuckDB, and the GCS client must be absent.
+After deployment, a smoke check confirms that the public service returns
+successfully and that each delivered page loads from production gold.
 
 ## 15. Delivery waypoints and review gates
 
@@ -554,21 +688,26 @@ user explicitly authorizes continuation.
 
 Deliver:
 
-- approved dependencies and pinned application contracts;
+- approved dependencies, the `dashboard` dependency group, and pinned
+  application contracts;
 - application shell and delivered-page-only navigation;
 - Q1 production-gold loader, cache, fixtures, and tests;
-- Overview containing only the Q1 panel;
+- Overview containing only the Q1 panel, carrying its qualification;
 - complete Q1 page and initial Methods & data page;
-- Docker image;
-- Artifact Registry, dashboard identity/IAM, and public Cloud Run service; and
+- Docker image built to the §11.2 scope;
+- Artifact Registry, dashboard identity/IAM, public Cloud Run service, and the
+  §13.4 spend guards; and
 - documented explicit deployment commands.
 
 Exit criteria:
 
 - all local checks and container build pass;
-- Terraform plan contains only the reviewed dashboard infrastructure;
+- the image contains no Dagster, dbt, DuckDB, or GCS client;
+- Terraform plan contains only the reviewed dashboard infrastructure, including
+  the BigQuery custom quota and budget alert;
 - the public URL loads Q1 from production gold;
-- partial-year and taxonomy qualifications are visible; and
+- partial-year and taxonomy qualifications are visible on both the Overview
+  panel and the Q1 page; and
 - the user completes hands-on review and authorizes Waypoint 2.
 
 ### Waypoint 2 — Q2
@@ -603,6 +742,8 @@ Exit criteria:
 
 - the default 2020/five-year scatter reconciles with `FINDINGS.md`;
 - cohort/window combinations cannot become invalid;
+- the displayed observation bound tracks the selected cohort and window, checked
+  on a non-default pair;
 - pooled and subfield paths cannot be mixed;
 - the rejected broad conjecture and narrower surviving result are both clear;
   and
