@@ -93,7 +93,9 @@ The GCP project comes from the existing `OPENALEX_GCP_PROJECT` environment
 variable.
 
 Local interactive runs also read production gold through Application Default
-Credentials. Automated tests use committed fixtures and make no network or cloud
+Credentials — the developer's own ADC identity directly, with no impersonation.
+Unlike dbt and Terraform, the dashboard never impersonates a service account
+locally, and it never runs locally as `dashboard-runner`. Automated tests use committed fixtures and make no network or cloud
 calls. The dbt dev target is not a dashboard input: its smaller size offers no
 useful UI-development advantage, and its Q2 values omit older cited works and
 therefore do not represent the production finding.
@@ -194,10 +196,11 @@ The final Overview contains:
 
 - A compact 2012-to-latest comparison of median cited-work age for all three
   groups.
-- Finding: by 2025, median citation attention in every group had moved to work
-  no more than five years old.
-- Qualification: a snapshot through citation year 2025, classified by the work
-  receiving the citation.
+- Finding: by the latest citation year, median citation attention in every group
+  had moved to work no more than five years old.
+- Qualification: a snapshot through the maximum loaded citation year, classified
+  by the work receiving the citation. The year is derived from the loaded
+  relation, never hardcoded.
 
 ### Q3 panel
 
@@ -220,7 +223,8 @@ Strict and broad AI appear together by default. Complete years use solid lines;
 the segment to the partial year is dashed and ends with a hollow marker.
 
 The default range is 1980 through the latest loaded year. Earlier years are
-available through the explicit "Show full history from 1950" control.
+available through an explicit full-history control. 1980 is the only pinned
+bound; both ends of the full-history range come from the loaded relation.
 
 ### 6.2 Controls
 
@@ -505,8 +509,8 @@ Only one of those is genuinely new to the environment:
 |---|---|---|
 | `streamlit` | absent | **new top-level dependency** |
 | `altair` | absent | arrives with Streamlit; declare it directly because charts import it |
-| `google-cloud-bigquery` | already resolved in `uv.lock` via `dbt-bigquery`, with the `pandas` extra | promote transitive → direct |
-| `pandas`, `pyarrow` | already resolved in `uv.lock` via the same path | none; already installed |
+| `google-cloud-bigquery` | already resolved in `uv.lock` via `dbt-bigquery`, with the `pandas` extra | promote transitive → direct, declared as `google-cloud-bigquery[pandas]` |
+| `pandas`, `pyarrow` | already resolved in `uv.lock` via the same path | none directly; they enter the `dashboard` group through the `pandas` extra above |
 
 So the approval decision is about adding Streamlit, plus making two existing
 transitive packages explicit. That is a smaller change than "three new
@@ -519,7 +523,10 @@ They still require explicit approval before implementation. Nothing is added to
 
 The dashboard's packages go in a dedicated `dashboard` dependency group, not
 into the base `[project.dependencies]`. The container image installs **only**
-that group plus the `openalex_pipeline.dashboard` package.
+that group plus the `openalex_pipeline.dashboard` package. The group is
+self-contained: everything the dashboard process imports at runtime is declared
+in it or reachable through one of its extras, because nothing from
+`[project.dependencies]` is present in the image.
 
 This is load-bearing rather than tidiness. The base dependency set carries
 Dagster, the Dagster webserver, dbt-core, dbt-bigquery, DuckDB, and the GCS
@@ -660,8 +667,17 @@ Required coverage includes:
 - blank, not zero, heatmap cells outside the observable triangle;
 - age-0 diagnostics without a false global inclusion toggle;
 - the presence of each required qualification on both the Overview panel and the
-  full page for every delivered question; and
+  full page for every delivered question;
+- that no dashboard module imports Polars, Dagster, dbt, DuckDB, or the GCS
+  client, so the §11.2 image scope is enforced in the test suite and not only at
+  build time; and
 - Streamlit page smoke tests using committed fixtures.
+
+Fixtures are committed CSV extracts of the production gold relations under
+`tests/dashboard/fixtures/`, one file per relation, small enough to read in a
+diff. They carry the enforced column names and a representative slice of rows,
+including the partial year, an unmapped subfield id, and a cohort whose window
+options are shorter than the default.
 
 Every waypoint runs at least:
 
@@ -673,6 +689,10 @@ uv run pytest
 terraform fmt -check -recursive terraform
 terraform validate
 ```
+
+The two Terraform commands are local checks: `validate` needs an initialized
+backend, so it stays out of CI for the same reason the existing pipeline
+infrastructure does.
 
 The container image must build locally, and its installed package list is
 checked against §11.2: Dagster, dbt, DuckDB, and the GCS client must be absent.
