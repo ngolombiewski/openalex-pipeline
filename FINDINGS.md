@@ -32,9 +32,18 @@ _All results below were computed under this configuration._
 | Dev slice         | publication years 2012–2016                                                  | `--vars` override |
 | Extraction filter | `primary_topic.field.id:17`                                                  | `OPENALEX_FILTER` |
 
-The three year-bound families advance **independently** and only after a manual
-full-corpus refresh plus reconciliation. Changing one does not license changing
-another.
+The three year-bound families advance **independently**, by explicit changes.
+Advancing Q2 or Q3 requires a manual full-corpus refresh plus reconciliation;
+advancing the corpus bounds alone does not extend either citation snapshot.
+
+**Read-only audit, 2026-09-19.** All four production gold relations were read
+under these unchanged bounds. The Q1 committed extract agrees to its six-decimal
+precision; the Q3 committed 2020/five-year measures agree with gold. The audit
+rechecked gold-derived summaries, ranks, triangle sizes, cross-grain paper and
+citation totals, and the Gini decomposition. No warehouse build was run.
+Source-level reconciliation, exclusion counts, including-age-0 Gini sensitivity,
+dev/prod deltas, and historical build costs remain measurements from the original
+validation; they cannot all be reconstructed from the four gold relations.
 
 ---
 
@@ -87,10 +96,17 @@ below the per-job cap.
 
 ## Q1 — AI's share of CS works
 
-**Result: AI's share of CS output is at an all-time high, but the path is not
-monotone.** ≈31% in 1980, a trough near 23% around 2012, ≈35% in 2025, ≈40% in
-the partial 2026 data. The dip-and-surge shape is consistent with the
-qualitative "AI winters" narrative.
+**Result: both AI definitions reach their highest share in the loaded
+1950–2026 series in partial 2026.** Strict AI rises from a **22.5% trough in
+2015** to **35.0% in 2025** and **39.8% in partial 2026**; its 1980 share was
+30.8%. Broad AI reaches **49.7% in 2025** and **54.7% in partial 2026**, after a
+34.5% trough in 2011.
+
+The complete-year distinction matters: broad AI's 2025 share is also a record
+over 1950–2025, but strict AI's 2025 share remains below its **35.3% in 1951**.
+The strict complete-year record claim is therefore supported only over the
+default 1980-onward presentation range, not the full history. This descriptive
+series does not establish a causal explanation for the decline and recovery.
 
 **Caveat that must travel with this result:** OpenAlex assigns topics
 retroactively using a modern taxonomy. That is what makes a 1980 "AI share"
@@ -145,36 +161,45 @@ headline Gini shows.**
 2020 cohort, five complete calendar years after publication:
 
 <!-- prettier-ignore -->
-| Subfield | Uncited rate | Gini (all) | Gini (cited only) |
+| Subfield | Share with no ages-1–5 citations | Gini (all) | Gini (cited only) |
 |---|---:|---:|---:|
-| **Artificial Intelligence** | 0.46 | 0.871 | **0.760** |
-| Computer Graphics & CAD | 0.68 | 0.922 | 0.759 |
-| **Computer Vision & PR** | 0.35 | 0.839 | **0.751** |
-| Information Systems | 0.62 | 0.898 | 0.729 |
-| Software | 0.61 | 0.864 | 0.651 |
-| Hardware & Architecture | 0.47 | 0.810 | 0.639 |
+| **Artificial Intelligence** | 0.464 | 0.871 | **0.760** |
+| Computer Graphics & CAD | 0.675 | 0.922 | 0.759 |
+| **Computer Vision & PR** | 0.353 | 0.839 | **0.751** |
+| Information Systems | 0.624 | 0.898 | 0.729 |
+| Software | 0.610 | 0.864 | 0.651 |
+| Hardware & Architecture | 0.473 | 0.810 | 0.639 |
 
-The all-papers Gini conflates two effects: how many papers are never cited, and
-how unequal the cited ones are. Decomposing reorders the field. AI has the
-highest cited-only Gini in CS and CV/PR the third — but what distinguishes them
-is the _pairing_: both combine that concentration with among the lowest uncited
-rates. AI papers get cited more often than average, and the winnings still pool
-at the top. The contrast is Computer Graphics, whose near-identical cited-only
-Gini comes with more than twice the uncited rate, and Information Systems, which
-tops the all-papers Gini purely because 62% of its papers are never cited.
+The all-paper Gini combines two effects: the share of papers receiving no
+citations in the selected window and inequality among those receiving citations.
+Here "uncited" always means no citations at ages 1–5; publication-year citations
+are excluded, so it does not mean never cited.
+
+For this 2020/five-year cell, AI has the highest cited-only Gini of the 11 CS
+subfields and CV/PR the third. Their uncited shares are the fourth-lowest and
+lowest respectively. Computer Graphics has a near-identical cited-only Gini to
+AI, but its uncited share is **1.46 times AI's**, a **21.1 percentage-point**
+gap. It has the highest all-paper Gini (**0.922**), followed by Information
+Systems (**0.898**); AI ranks fourth (**0.871**). Both the zero share and
+cited-only inequality contribute to these all-paper values.
 
 **Hardening over time.** Across cohorts 2012 → 2020 at the same five-year
 window, AI's cited-only Gini rises **0.684 → 0.760** while its uncited rate
 falls **0.576 → 0.464**.
 
 **The result that must not be overstated.** On the _pooled_ AI-versus-rest view,
-AI is **not** more concentrated overall — the all-papers Gini gap runs slightly
-the other way for most cohorts. AI is never the most concentrated CS subfield:
-it ranks **3rd–5th of 11** in every cohort at both windows, sitting 0.40–0.76
-into the min–max spread. Information Systems holds the maximum throughout.
-Pooled `rest_cs` Gini exceeds the mean individual-subfield Gini because pooling
-heterogeneous subfields adds between-subfield inequality — a structural
-asymmetry, now measured.
+AI's **all-paper** Gini is lower than pooled rest of CS in all 11 observable
+cohorts at window 3 and five of nine at window 5. The four positive window-5
+gaps are small (0.0008–0.0056), so there is no consistent AI excess.
+
+At these two windows, AI's all-paper Gini ranks **3rd–5th of 11** across the
+observable cohorts (2012–2022 at window 3; 2012–2020 at window 5), sitting
+0.40–0.76 into the min–max spread. Information Systems holds the maximum through
+2019; Computer Graphics holds it from 2020 at both windows. These rankings do
+not describe cited-only Gini or assert a result over every published window.
+Pooled `rest_cs` Gini exceeds the unweighted mean Gini of its constituent
+subfields at both windows. Pooling heterogeneous distributions changes the
+comparison; the pooled Gini is not an average of subfield Ginis.
 
 **Structural baselines.**
 
@@ -203,30 +228,37 @@ slice-boundary dedup difference (`DECISIONS.md` §11).
 
 **Age-0 sensitivity — substantively neutral, measured not assumed.** Including
 age 0 moves subfield Gini by a mean of −0.0055 at window 3 and −0.0042 at window
-5 (range −0.0107 to −0.0015); top-k shares move by at most 0.017. AI holds rank
-3–5 of 11 under both variants with two one-position swaps across 20
-cohort/window cases; the pooled comparison shows zero sign reversals.
+5 (range −0.0107 to −0.0015); top-k shares move by at most 0.017. AI's all-paper
+Gini holds rank 3–5 of 11 under both age-0 variants with two one-position swaps
+across 20 cohort/window cases; the pooled comparison shows zero sign reversals.
 
 **Age-0 diagnostics** are group-differentiated but small. Mean
 `age0_citation_share` at windows 3 / 5: 8.1% / 4.7% (`ai`), 5.9% / 3.4%
-(`cv_pr`), 7.9% / 4.8% (`rest_cs`). Mean `zero_share` gap is 1.7–2.0% at window
-3 and 1.2–1.4% at window 5.
+(`cv_pr`), 7.9% / 4.8% (`rest_cs`). The mean reduction in `zero_share` when age 0
+is included is 1.7–2.0 **percentage points** at window 3 and 1.2–1.4 percentage
+points at window 5. These are unweighted means over each group's observable
+cohorts at the stated window.
 
 **Negative-age entries inside the Q3 cohort range**: 192,150 entries carrying
 717,886 citation events, ages −12 to −1, ~1.1% of the cohorts' recorded event
 weight. The ages-1..N window excludes them.
 
 **Terminal-edge diagnostic — did not trigger retreat to 2024.** At window 3 the
-terminal 2022 cohort moves −0.013 / −0.010 / −0.006 in Gini against 2021; at
-window 5 the terminal 2020 cohort moves −0.005 / −0.004 / **+0.003**
-against 2019. The direction contradicts under-indexing: terminal cohorts show
-_higher_ citations per paper and _lower_ zero shares. Across the whole
-2025-ending diagonal, cohort steps are indistinguishable from the interior (mean
-−0.0018, sd 0.0156 vs −0.0012, sd 0.0120).
+terminal 2022 cohort moves −0.013 / −0.010 / −0.006 in pooled all-paper Gini
+against 2021 (AI / CV-PR / rest-CS); at window 5 the terminal 2020 cohort moves
+−0.005 / −0.004 / **+0.003**
+against 2019 in the same group order. Zero shares fall in all six comparisons.
+Citations per paper rise in five; **AI at window 5 falls by 0.197**. The
+pattern does not show a uniform loss of citation coverage, but one snapshot
+cannot rule out settling. Across subfields on the whole 2025-ending diagonal,
+all-paper Gini cohort steps have a similar scale to interior steps (mean
+−0.0018, sample sd 0.0156 vs −0.0012, sample sd 0.0120).
 
-**No structural discontinuity in the cohort series.** Largest steps sit in the
-smallest subfields at the shortest windows — Software at 4,859 papers moves
-+0.079 at age 2. Window-5 series are smoother than window-3 throughout.
+**Largest cohort steps occur in small subfields at short windows.** Software's
+2023 cohort, at 4,859 papers, moves +0.079 in all-paper Gini against 2022 at age
+2. Over the same cohort transitions (2012→2013 through 2019→2020), mean absolute
+subfield steps are 0.00761 at window 5 versus 0.00771 at window 3. This modest
+average difference does not establish that every window-5 series is smoother.
 
 ---
 
