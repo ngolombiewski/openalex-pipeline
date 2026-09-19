@@ -21,6 +21,7 @@ authoritative. Rationale for why measures are defined this way is in
 
 _All results below were computed under this configuration._
 
+<!-- prettier-ignore -->
 | Bound             | Value                                                                        | Source            |
 | ----------------- | ---------------------------------------------------------------------------- | ----------------- |
 | Prod run date     | 2026-07-31                                                                   | —                 |

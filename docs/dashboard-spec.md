@@ -1,6 +1,6 @@
 # Dashboard specification
 
-> **Status: draft for review.** This document pins the proposed dashboard
+> **Status: revised draft for review.** This document pins the proposed dashboard
 > contract and staged delivery plan. It does not authorize implementation.
 
 ## 1. Purpose and audience
@@ -70,8 +70,9 @@ Only pages delivered by the current waypoint appear. There are no dead links or
 
 Every analytical page follows the same order:
 
-1. A result-bearing title written as a claim.
-2. A short lead sentence stating the default finding.
+1. A title stating the result and its scope in the default state, or describing
+   the active comparison after controls change.
+2. A short lead sentence interpreting the displayed data.
 3. Question-specific controls in a compact row immediately above the visual.
 4. One load-bearing primary visual.
 5. A short interpretation paragraph containing the qualification that must
@@ -82,6 +83,15 @@ Every analytical page follows the same order:
 There are no global analytical controls. "Year" means a publication year in Q1,
 a citation-event year in Q2, and a publication cohort plus observation window in
 Q3. A global year filter would conflate those meanings.
+
+Numerical claims, extrema, and rankings come from the loaded rows. Ties are
+described as ties. Q1 record claims compare the full loaded history, separately
+for each definition and for complete versus partial years; changing the visible
+range does not change that comparison. If refreshed data no longer supports a
+prescribed finding, show the current descriptive values without the old claim.
+Q3's reviewed interpretation is explicitly scoped to the default 2020/five-year
+cell and cited-only measure. Other selections receive descriptive titles and
+values rather than inheriting that conclusion.
 
 ## 4. Data boundary
 
@@ -94,11 +104,9 @@ variable.
 
 Local interactive runs also read production gold through Application Default
 Credentials — the developer's own ADC identity directly, with no impersonation.
-Unlike dbt and Terraform, the dashboard never impersonates a service account
-locally, and it never runs locally as `dashboard-runner`. Automated tests use committed fixtures and make no network or cloud
-calls. The dbt dev target is not a dashboard input: its smaller size offers no
-useful UI-development advantage, and its Q2 values omit older cited works and
-therefore do not represent the production finding.
+Automated tests use committed fixtures without network or cloud calls. Dev is
+not a dashboard input: its Q2 values omit older cited works and do not represent
+production.
 
 ### 4.2 Relations and query contracts
 
@@ -146,29 +154,51 @@ has:
 - one cached entry for the complete dashboard snapshot; and
 - no disk persistence.
 
-One cache miss performs the four fixed BigQuery jobs. A failed refresh remains a
-failure; the application does not silently substitute an expired snapshot.
+One cache miss performs one fixed BigQuery job per delivered relation. Cache
+only a fully loaded batch. Failed refreshes propagate without substituting an
+expired batch. Concurrent requests for the same uncached entry must share one
+load within a process; an instance limit alone does not serialize queries.
 
-The TTL is not the main thing bounding warehouse jobs, and the spec should not
-pretend otherwise. With minimum instances 0, Cloud Run scales to zero on idle
-and the process-local cache dies with the container, so on a low-traffic public
-service most first visits pay a cold start plus four fresh queries regardless of
-TTL. The real bound is that the queries are fixed, tiny, and capped: the four
-gold relations total a few thousand rows, and `maximum_bytes_billed` caps each
-job. Capping instances at one additionally prevents concurrent traffic from
-multiplying those jobs across processes. Cold-start refreshes are accepted, not
-engineered away; raising minimum instances to 1 would trade continuous cost for
-latency the audience does not need.
+Scaling to zero discards the cache, so a cold start reloads all delivered
+relations regardless of TTL. This is accepted; the cache is not a daily spend
+limit. Deployment spend controls are specified in §13.4.
 
-The UI describes freshness through the bounds present in gold:
+**Consistency scope.** A dashboard snapshot means one application load batch,
+not a warehouse publication version. dbt replaces tables independently, so a
+load during a build may mix versions. V1 accepts this limitation and performs
+no cross-table analytical calculation or reconciliation. It does not promise
+that a load comes from one completed, successful dbt build. Atomic publication
+would require a separate warehouse design and is outside this dashboard scope.
+
+The UI states analytical coverage from gold, not a last-refresh timestamp:
 
 - Q1 visibly identifies the row marked `is_partial_year`.
 - Q2 says "Snapshot through citation year {maximum loaded citation year}."
-- Q3 states the bound implied by the **active selection**, not the relation
-  maximum: "Citations observed through {selected cohort + selected window}." A
-  2015 cohort at a three-year window reads 2018, not 2025.
+- Q3 snapshots and diagnostics say "Citations observed through {cohort +
+  window}." A 2015 cohort at window 3 reads 2018, not 2025.
+- Q3 trends and pooled comparisons state the fixed window and displayed cohort
+  range. Each point's tooltip gives its own `cohort + window` bound.
+- The Q3 heatmap gives per-cell bounds as specified in §8.4.
 
-It does not label BigQuery table modification time as analytical freshness.
+Gold has no source-extraction timestamp. Neither query time nor table
+modification time is labelled analytical freshness. Methods explains that Q2
+and Q3 require manual full-corpus refreshes; the current-year automation does
+not keep those historical citation snapshots current.
+
+### 4.4 Undefined metrics
+
+Q3 permits valid rows with zero total citations. Their Ginis and top-k shares
+are NULL; `age0_citation_share` is also NULL when ages 0..N contain no citations.
+These are undefined ratios, not corruption or zero-valued metrics.
+
+- Tables retain the row and display "Undefined — no citations" for the metric.
+- Scatter plots omit a point with an undefined axis value and state how many
+  points were omitted; those rows remain in the adjacent table.
+- Trends leave a gap without connecting across an undefined value.
+- Heatmaps distinguish an observable but undefined cell from a cell outside
+  the observation triangle. Neither is coloured as a numeric zero.
+- Colour domains use defined values only. If no defined values remain, show an
+  explanatory empty visual and the table; do not invent a domain.
 
 ## 5. Overview page
 
@@ -187,29 +217,31 @@ The final Overview contains:
 
 - Strict and broad AI-share series from 1980 onward.
 - A dashed or otherwise interrupted segment to the partial year.
-- Finding: AI's share of CS output is at an all-time high after a long decline
-  and renewed rise.
+- Finding: AI's share has risen from its trough; show the latest complete and
+  partial-year values for each definition. Claim a record only when supported
+  by the full loaded history under §3.
 - Qualification: OpenAlex assigns topics retroactively, so the historical series
   shows how today's taxonomy classifies earlier work.
 
 ### Q2 panel
 
-- A compact 2012-to-latest comparison of median cited-work age for all three
-  groups.
-- Finding: by the latest citation year, median citation attention in every group
-  had moved to work no more than five years old.
-- Qualification: a snapshot through the maximum loaded citation year, classified
-  by the work receiving the citation. The year is derived from the loaded
-  relation, never hardcoded.
+- A compact earliest-to-latest loaded citation-year comparison of median
+  cited-work age for all three groups.
+- Finding: display the change in each group's median age. State the five-year
+  conclusion only while the loaded latest values support it.
+- Qualification: citation-event-weighted ages, classified by the work receiving
+  the citation, in a snapshot through the maximum loaded citation year. The
+  year is derived from the loaded relation, never hardcoded.
 
 ### Q3 panel
 
-- The 2020-cohort, five-year reach-versus-concentration scatter used in the
-  README.
+- The 2020-cohort, five-year reach-versus-concentration scatter.
 - Finding: AI and CV/PR pair relatively broad citation reach with highly
   concentrated winnings among the papers that are cited.
-- Qualification: one publication cohort observed over five complete
-  post-publication years, excluding the publication year itself.
+- Qualification: one cohort observed in calendar years 2021–2025, excluding
+  publication-year citations. The latest citation year may still be settling.
+  If the Q3 ceiling advances beyond 2025, that final qualification follows the
+  new terminal cells rather than remaining attached to this fixed cell.
 
 The Overview has no controls. It is a summary, not a second copy of the detailed
 pages.
@@ -250,6 +282,11 @@ includes CV/PR subfield 1707. It also states that OpenAlex assigns topics
 retroactively using a modern taxonomy: the history shows how today's taxonomy
 classifies earlier work, not how each era classified itself.
 
+Partial-year shares are provisional within-year ratios. They are not forecasts
+of the complete year's share. For the reviewed data, both variants reach their
+loaded-history maximum in partial 2026; only broad AI also sets a full-history
+complete-year record in 2025.
+
 ## 7. Citation recency page (Q2)
 
 ### 7.1 Primary visual
@@ -288,21 +325,34 @@ The selected-year table always shows, for each active group:
 
 ### 7.4 Required interpretation
 
-The snapshot bound is displayed beside the title. The text states that events
-are classified by the work receiving the citation. The page does not claim to
-describe what AI-authored papers cite and does not interpret younger citation
-attention as proof of faster intrinsic obsolescence.
+The snapshot bound is displayed beside the title. Beside the visual, explain
+that a work receiving 100 citations contributes 100 observations at its age;
+this is a citation-event-weighted distribution. Age is the citation calendar
+year minus the publication year, not an exact elapsed duration. Thresholds
+include age 0: "≤5" means calendar ages 0–5.
+
+Events are classified by the receiving work. The page does not claim to describe
+what AI-authored papers cite or treat younger attention as proof of faster
+intrinsic obsolescence. The Overview retains the weighting and cited-side
+qualification in compressed form.
 
 ## 8. Citation concentration page (Q3)
 
 Q3 contains separate internal views. Subfield and pooled-group results never
 share a selector or dataframe.
 
+Each view owns independent control state, except diagnostics explicitly reuse
+the snapshot's cohort and window. Empty subfield selections show a prompt.
+If the pinned default cohort/window is absent after a future warehouse change,
+show that the reviewed default is unavailable; do not silently choose a new
+headline population. Other published cells remain accessible on the full page.
+
 ### 8.1 Subfield snapshot
 
 The default view is a scatter plot with:
 
-- x-axis: `zero_share`, labelled "Share uncited after the selected window";
+- x-axis: `zero_share`, labelled "Share receiving no citations in years 1–N",
+  with N replaced by the selected window;
 - y-axis: `gini_cited_only`, labelled "Gini among cited papers";
 - one point per classified CS subfield;
 - direct labels for AI, CV/PR, Computer Graphics, and Information Systems; and
@@ -329,6 +379,9 @@ therefore unreachable, and is never queried or rendered as missing data.
 The detail table shows subfield, papers, citations, uncited share, both Ginis,
 and all three top-k shares for the selected cell.
 
+Tooltips also include cohort, window, and the observation-end year. The metric
+labels and denominators follow §8.6.
+
 ### 8.2 Cohort trends
 
 This view compares equally observed publication cohorts. Publication cohort is
@@ -345,19 +398,23 @@ across every line; cohorts without that full window are absent by contract.
 The five-subfield limit prevents an unreadable line chart. Attempting a sixth
 selection leaves the existing selection unchanged and explains the limit.
 
+The adjacent table contains every displayed cohort/subfield row, its window,
+observation-end year, paper and citation counts, and the selected metric.
+
 ### 8.3 Pooled comparison
 
 The pooled comparison reads `gold_citation_gini_by_group` and is visually
 separated from the two subfield views. It plots AI, CV/PR, and rest of CS across
 publication cohorts at one fixed observation window.
 
-Its controls are observation window and metric; all three groups remain visible
-because the purpose is comparison rather than group lookup. The default is the
-five-year all-paper Gini, which directly exposes the rejected broad conjecture.
+Its controls are observation window and metric (the same options as cohort
+trends); all three groups remain visible. The default is the five-year
+all-paper Gini, which exposes the absence of a consistent AI excess.
 
 The qualification is always visible: rest of CS pools heterogeneous subfields,
 so its Gini contains between-subfield inequality that no individual subfield
 carries. This view and the subfield views are two relations at different grains.
+Its table and tooltips expose the same fields as cohort trends, keyed by group.
 
 ### 8.4 Lifecycle heatmap
 
@@ -367,7 +424,8 @@ The heatmap plots the complete observable triangle for one selected subfield:
 - columns: cumulative complete years after publication;
 - cell colour: selected metric; and
 - cell tooltip: cohort, observation window, the citation year the cell is
-  observed through, paper count, citation count, and exact metric value.
+  observed through, paper count, citation count, and metric value at §10's
+  display precision.
 
 <!-- prettier-ignore -->
 | Control | Options | Default |
@@ -375,9 +433,10 @@ The heatmap plots the complete observable triangle for one selected subfield:
 | Subfield | Classified CS subfields | Artificial Intelligence |
 | Metric | Uncited share, Cited-only Gini, All-paper Gini, Top 1%, Top 5%, Top 10% | Cited-only Gini |
 
-Unavailable cohort/window combinations remain blank and are labelled in the
-legend as "not yet observable"; they are never coloured as zero. Switching
-subfield does not rescale colours to that subfield alone. The colour domain is
+Cells outside the observable triangle remain blank and are labelled in the
+legend as "not yet observable". Observable cells with undefined metrics use a
+distinct neutral mark and legend entry under §4.4. Switching subfield does not
+rescale colours to that subfield alone. The colour domain is
 the observed global min-to-max range for the selected metric across classified
 subfields, making the selected heatmaps comparable.
 
@@ -389,11 +448,15 @@ diagonal ends at the Q3 window ceiling. The tooltip therefore carries the
 per-cell bound, and no single global "observed through" year is displayed over
 the grid.
 
+The adjacent table exposes the observable rows for the selected subfield,
+including undefined metrics, with the same fields as the tooltips.
+
 ### 8.5 Age-0 diagnostics
 
 Age 0 is not a global inclusion toggle because gold does not publish every
 headline metric under an including-age-0 definition. An expandable diagnostic
-section instead shows, for the selected subfield and cohort/window:
+section below the subfield snapshot has its own subfield selector (default AI)
+and reuses that snapshot's cohort/window controls. It shows:
 
 - age-0 share of citations received through the selected window;
 - uncited share over ages 1..N; and
@@ -410,6 +473,19 @@ which also reflects how many papers are uncited. It describes AI's result as the
 pairing of high cited-only concentration with relatively broad reach, not as "AI
 is the most citation-concentrated part of CS."
 
+"Uncited" means no citations in ages 1..N, even if a paper received citations
+in its publication year. Top-k labels say "Citation share received by the top
+k% of all cohort papers"; the count is `ceil(k / 100 * n_papers)`, including
+uncited papers in the population. These are shares of window citations, not
+percentages of cited papers. Ginis range from 0 toward 1 as inequality rises.
+
+Calendar years 1..N are equal-duration windows starting the January after
+publication, not each paper's first N years of life. Every Q3 rendering carries
+the age-0 exclusion. Views containing cells ending at the loaded Q3 ceiling
+(maximum `publication_year + citation_age`) also carry a settling caveat.
+These qualifications ship with the first affected view, including Overview and
+pooled comparisons in Waypoint 3.
+
 `__unclassified__` is excluded from every analytical selector and chart. It is a
 reconciliation bucket only.
 
@@ -425,9 +501,9 @@ This page is explanatory, not interactive. It contains:
 - Q2's citation-event weighting and cited-side classification;
 - Q3's cumulative complete-year windows, uncited-paper inclusion, age-0
   exclusion, and pooled-grain warning;
-- the negative-age exclusion: a small share of upstream records carry citation
-  years before their own publication year, they are excluded from both Q2 and
-  Q3 by contract, and the excluded weight is roughly one percent;
+- the negative-age exclusion: upstream citation years before publication are
+  excluded from Q2 and Q3; gold does not publish their excluded weight, so the
+  app does not present a fixed historical percentage as a current measurement;
 - the current bounds derived from loaded gold; and
 - a link back to the repository's full findings and design rationale.
 
@@ -440,10 +516,12 @@ remain in `FINDINGS.md`.
   subfields keep the same identities.
 - Pair colour with direct labels, line styles, or point shapes. Colour alone
   never carries identity.
-- Use integer formatting for paper counts and citation ages, one decimal place
-  for percentages in prose/tooltips, and three decimals for Ginis.
+- Use integer formatting for counts and calendar ages, one decimal place for
+  percentages, and three decimals for Ginis in chart labels, prose, and tooltips.
 - Chart titles state the population and time/window scope.
-- Tooltips expose exact values; prose may use rounded values.
+- Tables preserve the underlying numeric values and allow inspection beyond
+  rounded display precision. Tooltips report observed point values at the
+  stated display precision; they do not claim full numeric precision.
 - Every primary visual has an adjacent table representing the active state.
 - Controls use presentation names, never raw column names or URL-form subfield
   ids.
@@ -501,40 +579,17 @@ state.
 
 ### 11.1 Dependencies
 
-The runtime needs Streamlit, Altair, the BigQuery Python client, and pandas.
-Only one of those is genuinely new to the environment:
+The proposed `dashboard` dependency group declares `streamlit`, `altair`,
+`google-cloud-bigquery[pandas]`, and `pandas`. Streamlit and Altair are new to
+the lockfile; BigQuery, pandas, and pyarrow already arrive through dbt.
+Dependencies still require explicit approval before editing `pyproject.toml`.
 
-<!-- prettier-ignore -->
-| Package | Current status | Ask |
-|---|---|---|
-| `streamlit` | absent | **new top-level dependency** |
-| `altair` | absent | arrives with Streamlit; declare it directly because charts import it |
-| `google-cloud-bigquery` | already resolved in `uv.lock` via `dbt-bigquery`, with the `pandas` extra | promote transitive → direct, declared as `google-cloud-bigquery[pandas]` |
-| `pandas`, `pyarrow` | already resolved in `uv.lock` via the same path | none directly; they enter the `dashboard` group through the `pandas` extra above |
+### 11.2 Image scope
 
-So the approval decision is about adding Streamlit, plus making two existing
-transitive packages explicit. That is a smaller change than "three new
-dependencies," and it is worth deciding on the accurate version.
-
-They still require explicit approval before implementation. Nothing is added to
-`pyproject.toml` until that approval is given.
-
-### 11.2 Dependency group and image scope
-
-The dashboard's packages go in a dedicated `dashboard` dependency group, not
-into the base `[project.dependencies]`. The container image installs **only**
-that group plus the `openalex_pipeline.dashboard` package. The group is
-self-contained: everything the dashboard process imports at runtime is declared
-in it or reachable through one of its extras, because nothing from
-`[project.dependencies]` is present in the image.
-
-This is load-bearing rather than tidiness. The base dependency set carries
-Dagster, the Dagster webserver, dbt-core, dbt-bigquery, DuckDB, and the GCS
-client — hundreds of megabytes, none of it reachable from a dashboard process.
-Installing the project wholesale would ship the entire orchestration and
-warehouse toolchain into a public container to render four small tables. The
-image must not contain Dagster, dbt, DuckDB, or the GCS client, and a build that
-does is a failed build, not a large one.
+The image installs only the locked `dashboard` group and dashboard source.
+It must not contain Polars, Dagster, dbt, DuckDB, or the GCS client. Do not
+install the base project dependencies. Direct dashboard imports are declared in
+the group; required transitive packages come from its locked dependency tree.
 
 ## 12. Error behavior
 
@@ -569,44 +624,40 @@ No exception path returns fabricated values, partial relations, or stale data.
 - No secrets, service-account keys, volumes, or writable persistent storage are
   mounted.
 
-Memory is 1 GiB because Streamlit, pandas, and pyarrow are all resident at once;
-512 MiB leaves no headroom above their baseline. If a measured cold start shows
-otherwise, dropping to 512 MiB is a later, evidence-backed change.
+Memory starts at 1 GiB; adjust only from measured startup and concurrent-session
+usage. No baseline memory measurement is claimed by this spec.
 
 The browser receives no Google credentials. Cloud Run supplies Application
 Default Credentials to the server process through the attached runtime service
 account.
 
-**Accepted availability risk.** The service is public, unauthenticated, capped
-at one instance, and has no rate limiting or Cloud Armor policy. A single client
-can therefore saturate it. This is accepted: the dashboard is a portfolio
-artifact, an outage is not an incident, and the alternative is infrastructure
-the audience does not justify. The risk is bounded by §13.4, which caps what a
-saturating client can cost rather than preventing the saturation.
+**Accepted availability risk.** This public portfolio service has no rate
+limiting or Cloud Armor policy. A client can saturate it. The instance cap limits
+configured scale; it does not establish a daily spending limit.
 
 ### 13.2 Runtime identity
 
 Terraform creates a dedicated `dashboard-runner` service account with exactly:
 
 - `roles/bigquery.jobUser` on the project; and
-- `roles/bigquery.dataViewer` on the production analytics dataset.
+- `roles/bigquery.dataViewer` on each delivered production gold table, using
+  table-scoped grants rather than a dataset-wide grant.
 
-It receives no editor role, no dev-dataset role, no raw-dataset role, and no GCS
-role. The service never reuses the dbt runner identity.
+The production analytics dataset also contains staging and silver; the runtime
+identity receives no read grant on those tables. It receives no editor, dev,
+raw, or GCS grant and never reuses the dbt runner identity. Deployment checks
+must verify that gold remains readable after dbt replaces its tables.
 
 ### 13.3 Image and deployment
 
 Terraform owns an Artifact Registry repository and the Cloud Run service. The
-application image is built from a repository Dockerfile, tagged immutably with
-the git commit SHA, and pushed explicitly. Terraform receives that immutable
-image reference and creates the corresponding Cloud Run revision.
+image is built from a repository Dockerfile, tagged with the git commit SHA,
+and pushed explicitly. Terraform deploys its content digest so the revision
+identifies an immutable image.
 
-The Dockerfile installs the `dashboard` dependency group only, from the
-committed `uv.lock` so the image resolves to the same versions the test suite
-ran against. It copies `src/openalex_pipeline/dashboard/` and its package
-`__init__`, not the whole source tree, and it runs as a non-root user. A build
-that pulls Dagster, dbt, DuckDB, or the GCS client into the image has violated
-§11.2 and must be fixed rather than shipped.
+The Dockerfile uses committed `uv.lock`, copies the dashboard subtree and parent
+package `__init__`, and runs as a non-root user. Its installed packages must
+satisfy §11.2.
 
 The initial Artifact Registry bootstrap precedes the first image push; the Cloud
 Run resource is applied only after that image exists. Subsequent waypoint
@@ -616,28 +667,23 @@ waypoint is promoted by an explicit build, push, plan, and apply.
 
 ### 13.4 Spend guards
 
-This is the first surface in the project where cumulative cost is influenced by
-an anonymous third party, so the per-job circuit breaker the warehouse relies on
-is not sufficient on its own. `maximum_bytes_billed` caps one query; it says
-nothing about how many queries a visitor can trigger. Terraform therefore owns
-three layers:
+The design distinguishes per-job limits, configured compute scale, and
+cumulative spend. Fixed 100 MiB query limits and maximum instances 1 are pinned.
+Neither serializes all queries nor provides a daily spending ceiling;
+concurrency is 8 and cold starts discard the cache.
 
-<!-- prettier-ignore -->
-| Guard | Value | Bounds |
-|---|---|---|
-| `maximum_bytes_billed` per dashboard query | 100 MiB | cost of any single query |
-| Cloud Run maximum instances | 1 | concurrent compute, and concurrent query fan-out |
-| BigQuery custom quota on the dashboard service account | daily bytes-billed ceiling | total warehouse spend a visitor can drive in a day |
+**Unresolved before Waypoint 1 implementation:** verify a supported quota
+mechanism and record its exact metric, units, numeric limit, identity/project
+scope, Terraform resource, and exhaustion behavior. Do not assume that a
+dashboard-service-account-only daily bytes-billed quota is available. The
+selected mechanism must not restrict the pipeline's query allowance; if that
+is not achievable in this project, return that infrastructure tradeoff for
+review before implementing it.
 
-A project-level budget alert covers what the quota does not: it notifies rather
-than blocks, and it exists so an unexpected pattern is noticed within a day
-instead of at the end of the month. The quota is set on the `dashboard-runner`
-service account specifically, so exhausting it takes the dashboard down without
-touching dbt, Dagster, or any pipeline job.
-
-Blast radius if the dashboard is scraped continuously: the queries are fixed and
-small, the instance cap serializes them, and the daily quota terminates them.
-The failure mode is an unavailable dashboard, not an unbounded bill.
+Also pin the budget amount and period, alert thresholds, billing scope, and
+recipient. Budget alerts notify; they do not stop spending or guarantee a
+notification within a day. No hard total-cost bound is promised. Quota scope
+and alert settings are explicit review decisions, not implementation defaults.
 
 ## 14. Verification contract
 
@@ -654,6 +700,8 @@ Required coverage includes:
 - pure transformations from gold rows to each chart/table view;
 - default controls and conditional-control visibility;
 - partial-year rendering;
+- data-derived numerical claims, full-history Q1 record checks, and descriptive
+  titles for non-default Q3 selections;
 - Q2 group and threshold mappings;
 - Q3 cohort/window validity, including that changing cohort never leaves an
   unavailable window selected and that changing window never removes a cohort;
@@ -665,7 +713,12 @@ Required coverage includes:
 - exclusion of `__unclassified__` from analytical views;
 - separation of subfield and pooled data paths;
 - blank, not zero, heatmap cells outside the observable triangle;
+- distinct undefined-metric rendering, trend gaps, and all-undefined selections;
 - age-0 diagnostics without a false global inclusion toggle;
+- independent Q3 view state and diagnostics' shared snapshot cohort/window;
+- tables representing all displayed rows in each Q3 view;
+- one cache load per concurrent miss, complete-batch caching, and no expired
+  result after a failed refresh;
 - the presence of each required qualification on both the Overview panel and the
   full page for every delivered question;
 - that no dashboard module imports Polars, Dagster, dbt, DuckDB, or the GCS
@@ -673,11 +726,13 @@ Required coverage includes:
   build time; and
 - Streamlit page smoke tests using committed fixtures.
 
-Fixtures are committed CSV extracts of the production gold relations under
-`tests/dashboard/fixtures/`, one file per relation, small enough to read in a
-diff. They carry the enforced column names and a representative slice of rows,
-including the partial year, an unmapped subfield id, and a cohort whose window
-options are shorter than the default.
+Fixtures under `tests/dashboard/fixtures/` include one small production CSV
+extract per relation with enforced column names. Separate, explicitly synthetic
+fixtures cover valid cases absent from production: all-zero citation cells,
+age-0-only citations, the unclassified bucket, and an unmapped subfield id.
+Include partial years, shorter-than-default windows, missing pinned defaults,
+and refreshed values that invalidate old narrative claims. Record each extract's
+query date and analytical bounds so it is not confused with a live baseline.
 
 Every waypoint runs at least:
 
@@ -687,105 +742,69 @@ uv run ruff format --check .
 uv run pyright
 uv run pytest
 terraform fmt -check -recursive terraform
-terraform validate
+terraform -chdir=terraform validate
 ```
 
-The two Terraform commands are local checks: `validate` needs an initialized
-backend, so it stays out of CI for the same reason the existing pipeline
-infrastructure does.
+Validation needs installed providers/modules, not access to remote state.
+Initialize a fresh validation working directory with
+`terraform -chdir=terraform init -backend=false`. Formatting and validation can
+run in CI without cloud credentials; deployment plans remain explicit checks.
 
 The container image must build locally, and its installed package list is
-checked against §11.2: Dagster, dbt, DuckDB, and the GCS client must be absent.
+checked against §11.2: Polars, Dagster, dbt, DuckDB, and the GCS client must be
+absent.
 After deployment, a smoke check confirms that the public service returns
 successfully and that each delivered page loads from production gold.
 
 ## 15. Delivery waypoints and review gates
 
-No waypoint begins until the previous deployed waypoint has been tested and the
-user explicitly authorizes continuation.
+Implementation starts only after the user approves dependencies, resolves §13.4,
+and gives the signal. Each subsequent waypoint needs explicit authorization
+after review of the preceding deployment. Shared exit checks are §14's local
+verification, image inspection, and public smoke checks; repeat them at every
+waypoint. Deployments use the same URL and an immutable image digest.
 
 ### Waypoint 1 — Q1 vertical slice
 
-Deliver:
+Deliver the approved dependency group, shell, Q1 loader/cache, fixtures and tests,
+Q1-only Overview, complete Q1 page, and initial Methods page. Add the scoped
+image, Artifact Registry, gold-only runtime IAM, Cloud Run service, reviewed
+spend controls, and explicit build/push/plan/apply commands.
 
-- approved dependencies, the `dashboard` dependency group, and pinned
-  application contracts;
-- application shell and delivered-page-only navigation;
-- Q1 production-gold loader, cache, fixtures, and tests;
-- Overview containing only the Q1 panel, carrying its qualification;
-- complete Q1 page and initial Methods & data page;
-- Docker image built to the §11.2 scope;
-- Artifact Registry, dashboard identity/IAM, public Cloud Run service, and the
-  §13.4 spend guards; and
-- documented explicit deployment commands.
-
-Exit criteria:
-
-- all local checks and container build pass;
-- the image contains no Dagster, dbt, DuckDB, or GCS client;
-- Terraform plan contains only the reviewed dashboard infrastructure, including
-  the BigQuery custom quota and budget alert;
-- the public URL loads Q1 from production gold;
-- partial-year and taxonomy qualifications are visible on both the Overview
-  panel and the Q1 page; and
-- the user completes hands-on review and authorizes Waypoint 2.
+Accept when the Terraform plan contains only reviewed dashboard infrastructure,
+the public service reads Q1 gold, complete/partial-year claims are correct, and
+taxonomy and partial-year qualifications appear on both renderings. The user
+reviews the deployment before authorizing Q2.
 
 ### Waypoint 2 — Q2
 
-Deliver:
+Deliver Q2's data path, fixtures, tests, Overview panel, both measures, controls,
+quantile context, table, and qualifications.
 
-- Q2 query, fixtures, transformation contracts, and tests;
-- Q2 Overview panel;
-- median-age and recent-work-share views;
-- controls, quantile context, detail table, and required qualifications; and
-- a new immutable image deployed to the existing service.
-
-Exit criteria:
-
-- Q2 production bounds and headline values reconcile with `FINDINGS.md`;
-- changing measures, thresholds, groups, and detail year is correct;
-- no dev dataset is queried; and
-- the user completes hands-on review and authorizes Waypoint 3.
+Accept when values reconcile with findings under matching bounds and every
+measure/threshold/group/detail-year interaction works. Citation weighting,
+cited-side classification, and snapshot coverage must be visible. The user
+reviews the deployment before authorizing Q3.
 
 ### Waypoint 3 — Q3 core
 
-Deliver:
+Deliver separate subfield and pooled data paths, fixtures and tests, Q3 Overview,
+snapshot, equal-window trends, pooled comparison, valid controls, tables, and
+undefined-metric behavior. Include age-0, terminal-settling, and pooled-grain
+qualifications with the affected visuals now.
 
-- separate subfield and pooled queries, fixtures, contracts, and tests;
-- final Q3 Overview panel;
-- subfield snapshot and equal-window cohort trends;
-- separate pooled comparison;
-- valid cohort/window controls and exact detail tables; and
-- a new immutable image deployed to the existing service.
-
-Exit criteria:
-
-- the default 2020/five-year scatter reconciles with `FINDINGS.md`;
-- cohort/window combinations cannot become invalid;
-- the displayed observation bound tracks the selected cohort and window, checked
-  on a non-default pair;
-- pooled and subfield paths cannot be mixed;
-- the rejected broad conjecture and narrower surviving result are both clear;
-  and
-- the user completes hands-on review and authorizes Waypoint 4.
+Accept when the default 2020/five-year cell reconciles with findings, invalid
+cohort/window pairs are unreachable, and bounds track a non-default selection.
+The pooled and subfield paths stay separate, and claims distinguish cited-only
+from all-paper concentration. The user reviews before authorizing the final
+waypoint.
 
 ### Waypoint 4 — Q3 full and final integration
 
-Deliver:
+Deliver the heatmap, age-0 diagnostics, completed Methods page, final
+accessibility/mobile/theme review, and README link to the service.
 
-- lifecycle heatmap and its triangular availability contract;
-- age-0 diagnostics;
-- terminal-window and pooled-grain caveats;
-- completed Methods & data page;
-- final cross-page accessibility, mobile, light-theme, and dark-theme pass;
-- final README link to the public dashboard; and
-- the final immutable image deployed to the existing service.
-
-Exit criteria:
-
-- heatmap cells and colour domains reconcile with production gold;
-- unavailable cells cannot be mistaken for zeros;
-- both themes and narrow/wide layouts are visually reviewed;
-- all repository checks, container build, Terraform validation, and public smoke
-  checks pass; and
-- the user accepts the completed dashboard.
+Accept when heatmap values and global colour domains match gold; unavailable,
+undefined, and zero cells are distinguishable; diagnostics follow their stated
+controls; and both themes and narrow/wide layouts have been visually reviewed.
+The user accepts the completed deployment.
