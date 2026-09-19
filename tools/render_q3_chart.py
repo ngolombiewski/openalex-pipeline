@@ -10,6 +10,9 @@ at publication_year=2020 and citation_age=5. ``zero_share`` is the x coordinate
 and ``gini_cited_only`` is the y coordinate. The renderer rejects any other
 slice rather than silently producing a differently scoped figure.
 
+The chart labels the 2021–2025 observation window, excludes publication-year
+citations, and carries the terminal-year settling qualification.
+
 Deliberately stdlib-only: one static chart does not justify a plotting
 dependency, and hand-emitted SVG keeps the output diffable and crisp.
 
@@ -157,12 +160,12 @@ def render(theme: Theme, points: list[Point]) -> str:
         f'\'Segoe UI\',Helvetica,Arial,sans-serif" role="img" '
         'aria-labelledby="title desc">',
         '<title id="title">Citation reach and inequality across 2020 computer science subfields</title>',
-        '<desc id="desc">Scatter plot of the share of papers uncited after five complete years against citation inequality among cited papers. Artificial Intelligence and Computer Vision combine low uncited shares with high cited-only Gini coefficients.</desc>',
+        '<desc id="desc">Scatter plot for works published in 2020: share receiving no citations in calendar years 2021–2025 against citation inequality among works cited in that window. Artificial Intelligence and Computer Vision combine relatively broad reach with high cited-only Gini coefficients. Publication-year citations are excluded; 2025 may still be settling.</desc>',
         f'<rect width="{W}" height="{H}" fill="{theme.surface}"/>',
         f'<text x="{PAD_L}" y="31" fill="{theme.text_primary}" font-size="19" '
-        'font-weight="600">Citation reach and inequality move independently</text>',
+        'font-weight="600">AI and CV/PR combine broad reach with concentrated citations</text>',
         f'<text x="{PAD_L}" y="53" fill="{theme.text_secondary}" font-size="13">'
-        "2020 computer science subfields · citations received in years 1–5 after publication</text>",
+        "2020 computer science subfields · citations received in calendar years 2021–2025</text>",
     ]
 
     for tick in (0.64, 0.68, 0.72, 0.76):
@@ -192,9 +195,12 @@ def render(theme: Theme, points: list[Point]) -> str:
         [
             f'<text x="{(PAD_L + W - PAD_R) / 2:.1f}" y="{H - 28}" '
             f'fill="{theme.text_secondary}" font-size="13" text-anchor="middle">'
-            "Share uncited after five years</text>",
+            "Share receiving no citations in 2021–2025</text>",
             f'<text x="{PAD_L}" y="{H - 9}" fill="{theme.text_muted}" '
             'font-size="12">← more papers reached</text>',
+            f'<text x="{W - PAD_R}" y="{H - 9}" fill="{theme.text_muted}" '
+            'font-size="11" text-anchor="end">'
+            "Publication year excluded · 2025 may still be settling</text>",
             f'<text x="20" y="{(PAD_T + base) / 2:.1f}" fill="{theme.text_secondary}" '
             'font-size="13" text-anchor="middle" '
             f'transform="rotate(-90 20 {(PAD_T + base) / 2:.1f})">'
