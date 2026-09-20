@@ -635,6 +635,11 @@ account.
 limiting or Cloud Armor policy. A client can saturate it. The instance cap limits
 configured scale; it does not establish a daily spending limit.
 
+Streamlit holds a websocket for each open browser tab, and Cloud Run bills CPU
+while a request is in flight, so billed instance-time tracks how long tabs stay
+open rather than how much computation occurs. The 120 s request timeout forces a
+reconnect, not a billing pause. §13.4 states the resulting worst case.
+
 ### 13.2 Runtime identity
 
 Terraform creates a dedicated `dashboard-runner` service account with exactly:
@@ -659,11 +664,13 @@ The Dockerfile uses committed `uv.lock`, copies the dashboard subtree and parent
 package `__init__`, and runs as a non-root user. Its installed packages must
 satisfy §11.2.
 
-The initial Artifact Registry bootstrap precedes the first image push; the Cloud
-Run resource is applied only after that image exists. Subsequent waypoint
-deployments reuse the same public service URL and advance only its immutable
-image reference. Continuous deployment is deliberately deferred: a reviewed
-waypoint is promoted by an explicit build, push, plan, and apply.
+Enabling `run.googleapis.com` and `artifactregistry.googleapis.com` precedes any
+apply; neither is enabled on the project today. The initial Artifact Registry
+bootstrap precedes the first image push; the Cloud Run resource is applied only
+after that image exists. Subsequent waypoint deployments reuse the same public
+service URL and advance only its immutable image reference. Continuous
+deployment is deliberately deferred: a reviewed waypoint is promoted by an
+explicit build, push, plan, and apply.
 
 ### 13.4 Spend guards
 
@@ -672,18 +679,46 @@ cumulative spend. Fixed 100 MiB query limits and maximum instances 1 are pinned.
 Neither serializes all queries nor provides a daily spending ceiling;
 concurrency is 8 and cold starts discard the cache.
 
-**Unresolved before Waypoint 1 implementation:** verify a supported quota
-mechanism and record its exact metric, units, numeric limit, identity/project
-scope, Terraform resource, and exhaustion behavior. Do not assume that a
-dashboard-service-account-only daily bytes-billed quota is available. The
-selected mechanism must not restrict the pipeline's query allowance; if that
-is not achievable in this project, return that infrastructure tradeoff for
-review before implementing it.
+**Resolved.** GCP publishes no per-service-account daily bytes quota: the
+`bigquery.googleapis.com/quota/query/usage` metric exposes only a project
+bucket and a per-principal bucket, and carries no principal dimension. The
+per-principal bucket is used instead, so the dashboard cannot consume the
+pipeline's allowance and no second project is needed. Measurements, rejected
+alternatives, and the commands that produced them are in
+`docs/dashboard-spend-guards.md`.
 
-Also pin the budget amount and period, alert thresholds, billing scope, and
-recipient. Budget alerts notify; they do not stop spending or guarantee a
-notification within a day. No hard total-cost bound is promised. Quota scope
-and alert settings are explicit review decisions, not implementation defaults.
+<!-- prettier-ignore -->
+| Guard | Pinned setting |
+|---|---|
+| Per-job limit | `maximum_bytes_billed` 100 MiB (§4.2) |
+| Daily query quota | metric `bigquery.googleapis.com/quota/query/usage`, limit `1/d/{project}/{user}`, override value `262144`, unit **MiB** — 256 GiB per identity per day |
+| Quota resource | `google_service_usage_consumer_quota_override` |
+| Exhaustion behavior | query jobs fail with `quotaExceeded`; no silent degradation and no partial results |
+| Budget | €10 per calendar month, scoped to the project, Terraform `google_billing_budget` |
+| Budget alerts | 50%, 90% and 100% of actual spend plus 100% of forecast, by email to the owner |
+| Kill switch | manual `gcloud run services update openalex-dashboard --max-instances=0` |
+
+The quota value sits about 5.3× above the largest measured pipeline day. If a
+future full-corpus refresh trips it, dbt fails loudly and the value is a
+one-line change; that is the intended failure mode, not a regression. The
+override unit is MiB, not bytes — a byte count is 2^20 too large and silently
+ineffective.
+
+**What remains unbounded.** The dashboard's own query exposure is about 40 MB
+per cold snapshot load: four relations at BigQuery's 10 MB per-table minimum,
+against 197 KiB of actual gold. The larger exposure is Cloud Run, on the order
+of $90–100 per month if one instance is held active continuously (§13.1).
+Maximum instances 1 bounds that rate; nothing bounds the total. Budget alerts
+notify; they do not stop spending or guarantee a notification within a day. No
+hard total-cost bound is promised, and the kill switch above is the response.
+
+**Prerequisites.** Before the first apply the Terraform runner needs
+`roles/serviceusage.quotaAdmin` on the project and `roles/billing.costsManager`
+on the billing account, and `billingbudgets.googleapis.com` must be enabled;
+none of the three is in place today. Apply the quota override and read its
+effective limit back before the first deployment. If the API refuses the
+override, return that tradeoff for review rather than substituting a
+project-wide cap.
 
 ## 14. Verification contract
 
@@ -753,16 +788,22 @@ run in CI without cloud credentials; deployment plans remain explicit checks.
 The container image must build locally, and its installed package list is
 checked against §11.2: Polars, Dagster, dbt, DuckDB, and the GCS client must be
 absent.
+
+The §13.4 quota override and budget are cloud-side facts with no automated
+test: before the first deployment, confirm the override reads back its
+effective limit and that the budget exists.
+
 After deployment, a smoke check confirms that the public service returns
 successfully and that each delivered page loads from production gold.
 
 ## 15. Delivery waypoints and review gates
 
-Implementation starts only after the user approves dependencies, resolves §13.4,
-and gives the signal. Each subsequent waypoint needs explicit authorization
-after review of the preceding deployment. Shared exit checks are §14's local
-verification, image inspection, and public smoke checks; repeat them at every
-waypoint. Deployments use the same URL and an immutable image digest.
+Implementation starts only after the user approves dependencies and gives the
+signal; §13.4 is resolved. Each subsequent waypoint needs explicit
+authorization after review of the preceding deployment. Shared exit checks are
+§14's local verification, image inspection, and public smoke checks; repeat
+them at every waypoint. Deployments use the same URL and an immutable image
+digest.
 
 ### Waypoint 1 — Q1 vertical slice
 
