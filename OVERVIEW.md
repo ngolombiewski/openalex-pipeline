@@ -364,7 +364,7 @@ All env vars are in `.env.example`; `.envrc` (direnv) exports them and sets up
 | `scripts/`, `notebooks/` | exploration and diagnostics; not part of the pipeline |
 | `tools/` | `render_q1_chart.py`, `context_size.py` |
 | `assets/` | committed Q1 gold extract and the rendered charts |
-| `docs/dashboard-spec.md` | the remaining layer (Streamlit over gold), spec only |
+| `docs/dashboard-spec.md` | planned Astro presentation over frozen gold, spec only |
 | `docs/design-archive/`, `docs/openalex/` | archaeology; vendored upstream docs |
 
 ---
@@ -372,7 +372,8 @@ All env vars are in `.env.example`; `.envrc` (direnv) exports them and sets up
 ## 10. Current state and known gaps
 
 - The pipeline is complete through gold and reconciled at full corpus. The
-  **Streamlit dashboard is the one unbuilt layer** (`docs/dashboard-spec.md`).
+  **Dashboard is the one unbuilt layer**: an independent Astro/Observable Plot
+  site over committed gold snapshots, planned for GitHub Pages.
 - **Automation refreshes the current publication year only.** It does not
   extend Q2 citation windows or Q3 cohorts, and does not re-run classification.
   Advancing those bounds is a deliberate manual operation, done only after a

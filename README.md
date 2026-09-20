@@ -12,7 +12,8 @@ snapshot, checked again in September 2026; they are not live indicators.
 Python handles extraction and local landing, dbt SQL builds the BigQuery
 warehouse, Dagster orchestrates the stages, and Terraform manages the cloud
 infrastructure. **The pipeline is complete through gold.** A
-[Streamlit dashboard](docs/dashboard-spec.md) is planned.
+[standalone dashboard over frozen gold snapshots](docs/dashboard-spec.md) is
+planned, using Astro and Observable Plot with GitHub Pages hosting.
 
 ## Findings
 

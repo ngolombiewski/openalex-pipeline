@@ -281,7 +281,8 @@ _Binding on any consumer of gold, including the planned dashboard._
 
 ## Known limitations
 
-- **Dashboard not implemented.** Streamlit is the remaining application layer.
+- **Dashboard not implemented.** A standalone Astro presentation over frozen
+  gold snapshots is planned.
 - **Q2 and Q3 freshness is not automated.** The monthly current-year refresh
   does not update historical citation windows or classifications. Both are
   full-corpus analytical snapshots; extending their ranges is a manual

@@ -416,3 +416,79 @@ extraction snapshots can land in a dev cohort that prod excludes. Measured
 2,668,926); all 12 exist in prod under a later publication year. Prod is
 correct; the effect is 4.5e-6 of the slice. Q3 dev/prod reconciliation therefore
 runs under tolerance, not exactly.
+
+---
+
+## 12. Dashboard as a portfolio publication
+
+**Decided 2026-09-20: publish a standalone static visual essay over frozen
+gold exports.** The primary visitor is a recruiter or hiring manager spending
+a short time with the portfolio. Immediate access, clear findings, and visual
+quality are the application requirements. The pipeline already demonstrates
+orchestration and cloud engineering; reproducing its operational complexity in
+the presentation layer does not improve that experience.
+
+**Astro, TypeScript, Observable Plot, and ordinary CSS; GitHub Pages hosting.**
+The dashboard lives in its own `dashboard/` project within this repository,
+with local npm dependencies and its own lockfile. Node is a development/build
+tool, not a deployed server. The Python environment remains independent.
+The existing system-managed Node/npm installation is sufficient; a version
+manager is optional if different projects later require different runtimes.
+Learning frontend development is an explicit secondary benefit of this choice.
+
+**Frozen data is the publication input.** Commit the four production gold
+exports and a small provenance record, review the narrative against them, and
+deploy the data and presentation from one commit. Exporting is an explicit
+read-only task performed against a reviewed warehouse state without an
+overlapping build. Builds, local development, and visitors need no warehouse
+access. Later pipeline runs cannot change the published story. A new snapshot
+requires another content review and release; this loss of automatic freshness
+is deliberate. Export date does not establish source freshness, and retaining
+aggregates does not preserve the source data needed to recompute them.
+
+**Frozen evidence supporting the boundary, measured 2026-09-19:** production
+gold contained 1,470 rows and 202,097 logical bytes (about 197 KiB):
+
+<!-- prettier-ignore -->
+| Relation | Rows | Logical bytes |
+|---|---:|---:|
+| `gold_ai_share_by_year` | 154 | 6,237 |
+| `gold_citation_age_by_year` | 42 | 3,304 |
+| `gold_citation_gini_by_subfield` | 1,001 | 164,528 |
+| `gold_citation_gini_by_group` | 273 | 28,028 |
+
+These are warehouse logical sizes, not serialized download sizes. Even the
+complete analytical surface is small enough to bundle; an interactive query
+service buys no analytical capability needed by the first presentation.
+
+**One reading page, three fixed primary views.** Show both Q1 definitions,
+Q2's three median-age series, and Q3's reviewed 2020/five-year subfield scatter.
+Keep exact values and methods available through progressive disclosure.
+Defer arbitrary cohort/window/metric exploration, pooled charts, heatmaps, and
+interactive diagnostics. Preserve the qualifications on taxonomy, partial
+years, citation weighting, cited-side classification, and Q3's denominators
+and observation window. Reducing controls does not relax analytical precision.
+
+**This replaces the unimplemented Streamlit/BigQuery/Cloud Run proposal.**
+Live queries, TTL caches, runtime identities, registry/container management,
+query quotas, budgets, and staged public deployments were consequences of a
+serving architecture the portfolio does not need. No dashboard-specific cloud
+quota or budget change is adopted. Existing pipeline safeguards remain in
+place. The superseded spend-guard report is removed; the relevant size
+measurement is preserved above.
+
+Streamlit with bundled data was considered but would retain an application
+server and favor Python application construction over control of the reading
+experience. Observable Framework was a viable static alternative; Astro was
+chosen for control over the page's layout and presentation. Plain HTML/CSS/JS
+would also work, but Astro provides a small amount of useful build and component
+structure. React, a CSS framework, and a browser SQL engine are unnecessary
+for these views.
+
+GitHub Pages keeps publishing beside the repository and serves the portable
+static artifact. Cloudflare was a viable alternative; no provider-specific
+runtime feature is needed. Publish explicitly after review through a separate
+frontend workflow, with no GCP authentication or pipeline execution. Review the
+complete local experience before the first public release instead of requiring
+one public deployment per question. Implementation still requires the user's
+signal.
