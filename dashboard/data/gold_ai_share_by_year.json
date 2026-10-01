@@ -1,0 +1,1234 @@
+[
+ {
+  "publication_year": 1950,
+  "variant": "broad",
+  "cs_works": 3582,
+  "ai_works": 1617,
+  "share": 0.45142378559463986,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1950,
+  "variant": "strict",
+  "cs_works": 3582,
+  "ai_works": 1214,
+  "share": 0.3389168062534897,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1951,
+  "variant": "broad",
+  "cs_works": 3877,
+  "ai_works": 1799,
+  "share": 0.46401857106009803,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1951,
+  "variant": "strict",
+  "cs_works": 3877,
+  "ai_works": 1369,
+  "share": 0.3531080732525148,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1952,
+  "variant": "broad",
+  "cs_works": 4043,
+  "ai_works": 1875,
+  "share": 0.46376453128864703,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1952,
+  "variant": "strict",
+  "cs_works": 4043,
+  "ai_works": 1394,
+  "share": 0.34479347019539947,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1953,
+  "variant": "broad",
+  "cs_works": 4412,
+  "ai_works": 2013,
+  "share": 0.4562556663644606,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1953,
+  "variant": "strict",
+  "cs_works": 4412,
+  "ai_works": 1517,
+  "share": 0.34383499546690843,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1954,
+  "variant": "broad",
+  "cs_works": 4605,
+  "ai_works": 2132,
+  "share": 0.46297502714440825,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1954,
+  "variant": "strict",
+  "cs_works": 4605,
+  "ai_works": 1581,
+  "share": 0.3433224755700326,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1955,
+  "variant": "broad",
+  "cs_works": 4867,
+  "ai_works": 2219,
+  "share": 0.45592767618656255,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1955,
+  "variant": "strict",
+  "cs_works": 4867,
+  "ai_works": 1692,
+  "share": 0.3476474214094925,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1956,
+  "variant": "broad",
+  "cs_works": 5078,
+  "ai_works": 2286,
+  "share": 0.4501772351319417,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1956,
+  "variant": "strict",
+  "cs_works": 5078,
+  "ai_works": 1740,
+  "share": 0.34265458842063806,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1957,
+  "variant": "broad",
+  "cs_works": 5339,
+  "ai_works": 2397,
+  "share": 0.4489604794905413,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1957,
+  "variant": "strict",
+  "cs_works": 5339,
+  "ai_works": 1833,
+  "share": 0.34332271961041394,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1958,
+  "variant": "broad",
+  "cs_works": 5831,
+  "ai_works": 2563,
+  "share": 0.43954724747041674,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1958,
+  "variant": "strict",
+  "cs_works": 5831,
+  "ai_works": 1947,
+  "share": 0.33390499056765566,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1959,
+  "variant": "broad",
+  "cs_works": 6542,
+  "ai_works": 2899,
+  "share": 0.4431366554570468,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1959,
+  "variant": "strict",
+  "cs_works": 6542,
+  "ai_works": 2212,
+  "share": 0.3381228981962702,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1960,
+  "variant": "broad",
+  "cs_works": 7326,
+  "ai_works": 3181,
+  "share": 0.4342069342069342,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1960,
+  "variant": "strict",
+  "cs_works": 7326,
+  "ai_works": 2436,
+  "share": 0.3325143325143325,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1961,
+  "variant": "broad",
+  "cs_works": 7699,
+  "ai_works": 3302,
+  "share": 0.4288868684244707,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1961,
+  "variant": "strict",
+  "cs_works": 7699,
+  "ai_works": 2602,
+  "share": 0.3379659696064424,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1962,
+  "variant": "broad",
+  "cs_works": 8406,
+  "ai_works": 3520,
+  "share": 0.4187485129669284,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1962,
+  "variant": "strict",
+  "cs_works": 8406,
+  "ai_works": 2768,
+  "share": 0.32928860337853916,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1963,
+  "variant": "broad",
+  "cs_works": 9688,
+  "ai_works": 4141,
+  "share": 0.4274360033030553,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1963,
+  "variant": "strict",
+  "cs_works": 9688,
+  "ai_works": 3285,
+  "share": 0.3390792733278282,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1964,
+  "variant": "broad",
+  "cs_works": 10790,
+  "ai_works": 4446,
+  "share": 0.41204819277108434,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1964,
+  "variant": "strict",
+  "cs_works": 10790,
+  "ai_works": 3496,
+  "share": 0.3240037071362373,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1965,
+  "variant": "broad",
+  "cs_works": 11955,
+  "ai_works": 4958,
+  "share": 0.4147218736930155,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1965,
+  "variant": "strict",
+  "cs_works": 11955,
+  "ai_works": 3909,
+  "share": 0.3269761606022585,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1966,
+  "variant": "broad",
+  "cs_works": 12778,
+  "ai_works": 5138,
+  "share": 0.4020973548286117,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1966,
+  "variant": "strict",
+  "cs_works": 12778,
+  "ai_works": 4008,
+  "share": 0.313664110189388,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1967,
+  "variant": "broad",
+  "cs_works": 14046,
+  "ai_works": 5671,
+  "share": 0.4037448383881532,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1967,
+  "variant": "strict",
+  "cs_works": 14046,
+  "ai_works": 4513,
+  "share": 0.32130143813185247,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1968,
+  "variant": "broad",
+  "cs_works": 15272,
+  "ai_works": 6292,
+  "share": 0.41199580932425356,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1968,
+  "variant": "strict",
+  "cs_works": 15272,
+  "ai_works": 4985,
+  "share": 0.3264143530644316,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1969,
+  "variant": "broad",
+  "cs_works": 17757,
+  "ai_works": 7027,
+  "share": 0.39573126091118993,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1969,
+  "variant": "strict",
+  "cs_works": 17757,
+  "ai_works": 5586,
+  "share": 0.3145801655685082,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1970,
+  "variant": "broad",
+  "cs_works": 21175,
+  "ai_works": 7997,
+  "share": 0.37766233766233764,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1970,
+  "variant": "strict",
+  "cs_works": 21175,
+  "ai_works": 6329,
+  "share": 0.2988902007083825,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1971,
+  "variant": "broad",
+  "cs_works": 19300,
+  "ai_works": 7570,
+  "share": 0.3922279792746114,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1971,
+  "variant": "strict",
+  "cs_works": 19300,
+  "ai_works": 5969,
+  "share": 0.30927461139896373,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1972,
+  "variant": "broad",
+  "cs_works": 20276,
+  "ai_works": 8038,
+  "share": 0.3964292759913198,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1972,
+  "variant": "strict",
+  "cs_works": 20276,
+  "ai_works": 6440,
+  "share": 0.31761688695995266,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1973,
+  "variant": "broad",
+  "cs_works": 21193,
+  "ai_works": 8362,
+  "share": 0.39456424291039494,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1973,
+  "variant": "strict",
+  "cs_works": 21193,
+  "ai_works": 6629,
+  "share": 0.31279195960930495,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1974,
+  "variant": "broad",
+  "cs_works": 22334,
+  "ai_works": 8791,
+  "share": 0.3936151159666876,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1974,
+  "variant": "strict",
+  "cs_works": 22334,
+  "ai_works": 7008,
+  "share": 0.31378167815886093,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1975,
+  "variant": "broad",
+  "cs_works": 24432,
+  "ai_works": 9653,
+  "share": 0.39509659462999347,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1975,
+  "variant": "strict",
+  "cs_works": 24432,
+  "ai_works": 7501,
+  "share": 0.3070153896529142,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1976,
+  "variant": "broad",
+  "cs_works": 24430,
+  "ai_works": 9296,
+  "share": 0.3805157593123209,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1976,
+  "variant": "strict",
+  "cs_works": 24430,
+  "ai_works": 7400,
+  "share": 0.3029062627916496,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1977,
+  "variant": "broad",
+  "cs_works": 26089,
+  "ai_works": 10287,
+  "share": 0.39430411284449385,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1977,
+  "variant": "strict",
+  "cs_works": 26089,
+  "ai_works": 8201,
+  "share": 0.3143470428149795,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1978,
+  "variant": "broad",
+  "cs_works": 27184,
+  "ai_works": 10750,
+  "share": 0.39545320776927606,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1978,
+  "variant": "strict",
+  "cs_works": 27184,
+  "ai_works": 8557,
+  "share": 0.31478075338434375,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1979,
+  "variant": "broad",
+  "cs_works": 28567,
+  "ai_works": 11186,
+  "share": 0.3915706934574859,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1979,
+  "variant": "strict",
+  "cs_works": 28567,
+  "ai_works": 8593,
+  "share": 0.30080162425175905,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1980,
+  "variant": "broad",
+  "cs_works": 30081,
+  "ai_works": 11865,
+  "share": 0.3944350254313354,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1980,
+  "variant": "strict",
+  "cs_works": 30081,
+  "ai_works": 9267,
+  "share": 0.3080682158172933,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1981,
+  "variant": "broad",
+  "cs_works": 31480,
+  "ai_works": 12127,
+  "share": 0.3852287166454892,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1981,
+  "variant": "strict",
+  "cs_works": 31480,
+  "ai_works": 9379,
+  "share": 0.29793519695044474,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1982,
+  "variant": "broad",
+  "cs_works": 33174,
+  "ai_works": 12440,
+  "share": 0.37499246397781394,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1982,
+  "variant": "strict",
+  "cs_works": 33174,
+  "ai_works": 9618,
+  "share": 0.28992584554168926,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1983,
+  "variant": "broad",
+  "cs_works": 36240,
+  "ai_works": 13925,
+  "share": 0.3842439293598234,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1983,
+  "variant": "strict",
+  "cs_works": 36240,
+  "ai_works": 10810,
+  "share": 0.29828918322295805,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1984,
+  "variant": "broad",
+  "cs_works": 38527,
+  "ai_works": 14402,
+  "share": 0.37381576556700497,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1984,
+  "variant": "strict",
+  "cs_works": 38527,
+  "ai_works": 11155,
+  "share": 0.2895372076725413,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1985,
+  "variant": "broad",
+  "cs_works": 41486,
+  "ai_works": 15408,
+  "share": 0.37140240080991177,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1985,
+  "variant": "strict",
+  "cs_works": 41486,
+  "ai_works": 11723,
+  "share": 0.2825772549775828,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1986,
+  "variant": "broad",
+  "cs_works": 46886,
+  "ai_works": 17751,
+  "share": 0.3785991553981999,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1986,
+  "variant": "strict",
+  "cs_works": 46886,
+  "ai_works": 13666,
+  "share": 0.29147293435140553,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1987,
+  "variant": "broad",
+  "cs_works": 50799,
+  "ai_works": 19665,
+  "share": 0.3871139195653458,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1987,
+  "variant": "strict",
+  "cs_works": 50799,
+  "ai_works": 15165,
+  "share": 0.2985294986121774,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1988,
+  "variant": "broad",
+  "cs_works": 55016,
+  "ai_works": 22019,
+  "share": 0.4002290242838447,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1988,
+  "variant": "strict",
+  "cs_works": 55016,
+  "ai_works": 16938,
+  "share": 0.30787407299694636,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1989,
+  "variant": "broad",
+  "cs_works": 59066,
+  "ai_works": 23762,
+  "share": 0.4022957369722006,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1989,
+  "variant": "strict",
+  "cs_works": 59066,
+  "ai_works": 18213,
+  "share": 0.30834998137676495,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1990,
+  "variant": "broad",
+  "cs_works": 65947,
+  "ai_works": 27565,
+  "share": 0.4179871715165208,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1990,
+  "variant": "strict",
+  "cs_works": 65947,
+  "ai_works": 21116,
+  "share": 0.3201965214490424,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1991,
+  "variant": "broad",
+  "cs_works": 70414,
+  "ai_works": 29617,
+  "share": 0.4206123782202403,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1991,
+  "variant": "strict",
+  "cs_works": 70414,
+  "ai_works": 22300,
+  "share": 0.3166983838441219,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1992,
+  "variant": "broad",
+  "cs_works": 75903,
+  "ai_works": 32041,
+  "share": 0.42213087756742157,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1992,
+  "variant": "strict",
+  "cs_works": 75903,
+  "ai_works": 23594,
+  "share": 0.3108441036586169,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1993,
+  "variant": "broad",
+  "cs_works": 81089,
+  "ai_works": 33946,
+  "share": 0.4186264474836291,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1993,
+  "variant": "strict",
+  "cs_works": 81089,
+  "ai_works": 25100,
+  "share": 0.3095364352748215,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1994,
+  "variant": "broad",
+  "cs_works": 85970,
+  "ai_works": 36335,
+  "share": 0.42264743515179715,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1994,
+  "variant": "strict",
+  "cs_works": 85970,
+  "ai_works": 26719,
+  "share": 0.3107944631848319,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1995,
+  "variant": "broad",
+  "cs_works": 90286,
+  "ai_works": 37074,
+  "share": 0.4106284473783311,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1995,
+  "variant": "strict",
+  "cs_works": 90286,
+  "ai_works": 26840,
+  "share": 0.29727754026094855,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1996,
+  "variant": "broad",
+  "cs_works": 98780,
+  "ai_works": 40779,
+  "share": 0.41282648309374365,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1996,
+  "variant": "strict",
+  "cs_works": 98780,
+  "ai_works": 29079,
+  "share": 0.294381453735574,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1997,
+  "variant": "broad",
+  "cs_works": 102784,
+  "ai_works": 41465,
+  "share": 0.4034188200498132,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1997,
+  "variant": "strict",
+  "cs_works": 102784,
+  "ai_works": 29834,
+  "share": 0.29025918430884184,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1998,
+  "variant": "broad",
+  "cs_works": 109483,
+  "ai_works": 44568,
+  "share": 0.4070768977832175,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1998,
+  "variant": "strict",
+  "cs_works": 109483,
+  "ai_works": 31640,
+  "share": 0.2889946384370176,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1999,
+  "variant": "broad",
+  "cs_works": 118462,
+  "ai_works": 47442,
+  "share": 0.4004828552616029,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 1999,
+  "variant": "strict",
+  "cs_works": 118462,
+  "ai_works": 33788,
+  "share": 0.28522226536779727,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2000,
+  "variant": "broad",
+  "cs_works": 142305,
+  "ai_works": 56315,
+  "share": 0.39573451389620884,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2000,
+  "variant": "strict",
+  "cs_works": 142305,
+  "ai_works": 41426,
+  "share": 0.29110712905379293,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2001,
+  "variant": "broad",
+  "cs_works": 154054,
+  "ai_works": 60538,
+  "share": 0.3929661027951238,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2001,
+  "variant": "strict",
+  "cs_works": 154054,
+  "ai_works": 44369,
+  "share": 0.2880093993015436,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2002,
+  "variant": "broad",
+  "cs_works": 293993,
+  "ai_works": 113177,
+  "share": 0.38496494814502386,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2002,
+  "variant": "strict",
+  "cs_works": 293993,
+  "ai_works": 73536,
+  "share": 0.25012840441779227,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2003,
+  "variant": "broad",
+  "cs_works": 258702,
+  "ai_works": 97826,
+  "share": 0.3781416455999567,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2003,
+  "variant": "strict",
+  "cs_works": 258702,
+  "ai_works": 67001,
+  "share": 0.25898910715804285,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2004,
+  "variant": "broad",
+  "cs_works": 269768,
+  "ai_works": 101398,
+  "share": 0.3758711188873402,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2004,
+  "variant": "strict",
+  "cs_works": 269768,
+  "ai_works": 70696,
+  "share": 0.2620622164230005,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2005,
+  "variant": "broad",
+  "cs_works": 318829,
+  "ai_works": 121126,
+  "share": 0.3799089794215708,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2005,
+  "variant": "strict",
+  "cs_works": 318829,
+  "ai_works": 82332,
+  "share": 0.2582324694428675,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2006,
+  "variant": "broad",
+  "cs_works": 349154,
+  "ai_works": 131835,
+  "share": 0.37758410328966585,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2006,
+  "variant": "strict",
+  "cs_works": 349154,
+  "ai_works": 89669,
+  "share": 0.256817908430091,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2007,
+  "variant": "broad",
+  "cs_works": 368188,
+  "ai_works": 137487,
+  "share": 0.3734152117939748,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2007,
+  "variant": "strict",
+  "cs_works": 368188,
+  "ai_works": 93786,
+  "share": 0.2547231305745978,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2008,
+  "variant": "broad",
+  "cs_works": 393475,
+  "ai_works": 143835,
+  "share": 0.3655505432365462,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2008,
+  "variant": "strict",
+  "cs_works": 393475,
+  "ai_works": 97676,
+  "share": 0.24823940529893895,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2009,
+  "variant": "broad",
+  "cs_works": 432741,
+  "ai_works": 155630,
+  "share": 0.3596377509873111,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2009,
+  "variant": "strict",
+  "cs_works": 432741,
+  "ai_works": 103999,
+  "share": 0.2403261997361008,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2010,
+  "variant": "broad",
+  "cs_works": 467029,
+  "ai_works": 166059,
+  "share": 0.3555646437373268,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2010,
+  "variant": "strict",
+  "cs_works": 467029,
+  "ai_works": 110648,
+  "share": 0.23691890653471198,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2011,
+  "variant": "broad",
+  "cs_works": 497744,
+  "ai_works": 171797,
+  "share": 0.3451513227683307,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2011,
+  "variant": "strict",
+  "cs_works": 497744,
+  "ai_works": 113561,
+  "share": 0.22815141920344595,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2012,
+  "variant": "broad",
+  "cs_works": 507914,
+  "ai_works": 176708,
+  "share": 0.3479092917304898,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2012,
+  "variant": "strict",
+  "cs_works": 507914,
+  "ai_works": 116925,
+  "share": 0.23020629476643684,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2013,
+  "variant": "broad",
+  "cs_works": 521918,
+  "ai_works": 181936,
+  "share": 0.34859115799799967,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2013,
+  "variant": "strict",
+  "cs_works": 521918,
+  "ai_works": 119267,
+  "share": 0.22851674017757578,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2014,
+  "variant": "broad",
+  "cs_works": 534580,
+  "ai_works": 187256,
+  "share": 0.3502862059934902,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2014,
+  "variant": "strict",
+  "cs_works": 534580,
+  "ai_works": 123055,
+  "share": 0.23019005574469678,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2015,
+  "variant": "broad",
+  "cs_works": 545880,
+  "ai_works": 189300,
+  "share": 0.3467795119806551,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2015,
+  "variant": "strict",
+  "cs_works": 545880,
+  "ai_works": 122837,
+  "share": 0.2250256466622701,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2016,
+  "variant": "broad",
+  "cs_works": 558634,
+  "ai_works": 198923,
+  "share": 0.3560882438233262,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2016,
+  "variant": "strict",
+  "cs_works": 558634,
+  "ai_works": 132883,
+  "share": 0.23787130751082103,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2017,
+  "variant": "broad",
+  "cs_works": 561217,
+  "ai_works": 204035,
+  "share": 0.36355812457569886,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2017,
+  "variant": "strict",
+  "cs_works": 561217,
+  "ai_works": 135444,
+  "share": 0.24133980260754753,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2018,
+  "variant": "broad",
+  "cs_works": 602587,
+  "ai_works": 226550,
+  "share": 0.37596230917693213,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2018,
+  "variant": "strict",
+  "cs_works": 602587,
+  "ai_works": 150924,
+  "share": 0.25046009953749415,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2019,
+  "variant": "broad",
+  "cs_works": 636375,
+  "ai_works": 253532,
+  "share": 0.39840031428010214,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2019,
+  "variant": "strict",
+  "cs_works": 636375,
+  "ai_works": 170092,
+  "share": 0.2672826556668631,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2020,
+  "variant": "broad",
+  "cs_works": 676598,
+  "ai_works": 270576,
+  "share": 0.3999065915063302,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2020,
+  "variant": "strict",
+  "cs_works": 676598,
+  "ai_works": 186508,
+  "share": 0.2756555591355576,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2021,
+  "variant": "broad",
+  "cs_works": 634696,
+  "ai_works": 274965,
+  "share": 0.4332231493502401,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2021,
+  "variant": "strict",
+  "cs_works": 634696,
+  "ai_works": 186772,
+  "share": 0.29427001273050407,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2022,
+  "variant": "broad",
+  "cs_works": 609693,
+  "ai_works": 268836,
+  "share": 0.44093666812641774,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2022,
+  "variant": "strict",
+  "cs_works": 609693,
+  "ai_works": 180241,
+  "share": 0.2956258313610292,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2023,
+  "variant": "broad",
+  "cs_works": 684069,
+  "ai_works": 313082,
+  "share": 0.45767605314668547,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2023,
+  "variant": "strict",
+  "cs_works": 684069,
+  "ai_works": 211003,
+  "share": 0.3084528022757938,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2024,
+  "variant": "broad",
+  "cs_works": 707896,
+  "ai_works": 336578,
+  "share": 0.47546249731598994,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2024,
+  "variant": "strict",
+  "cs_works": 707896,
+  "ai_works": 232331,
+  "share": 0.32819934001604756,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2025,
+  "variant": "broad",
+  "cs_works": 817426,
+  "ai_works": 406586,
+  "share": 0.49739792959852025,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2025,
+  "variant": "strict",
+  "cs_works": 817426,
+  "ai_works": 285860,
+  "share": 0.349707496458395,
+  "is_partial_year": false
+ },
+ {
+  "publication_year": 2026,
+  "variant": "broad",
+  "cs_works": 457122,
+  "ai_works": 249937,
+  "share": 0.5467621335223419,
+  "is_partial_year": true
+ },
+ {
+  "publication_year": 2026,
+  "variant": "strict",
+  "cs_works": 457122,
+  "ai_works": 181813,
+  "share": 0.39773408411758787,
+  "is_partial_year": true
+ }
+]

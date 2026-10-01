@@ -1,0 +1,31 @@
+{
+ "exported_at": "2026-10-01T10:46:52.981391Z",
+ "source_tables": {
+  "gold_ai_share_by_year": "openalex-pipeline.openalex_analytics.gold_ai_share_by_year",
+  "gold_citation_age_by_year": "openalex-pipeline.openalex_analytics.gold_citation_age_by_year",
+  "gold_citation_gini_by_subfield": "openalex-pipeline.openalex_analytics.gold_citation_gini_by_subfield",
+  "gold_citation_gini_by_group": "openalex-pipeline.openalex_analytics.gold_citation_gini_by_group"
+ },
+ "source_modified_at": {
+  "gold_ai_share_by_year": "2026-07-07T13:59:40.929000Z",
+  "gold_citation_age_by_year": "2026-07-29T14:55:53.121000Z",
+  "gold_citation_gini_by_subfield": "2026-07-30T23:08:27.312000Z",
+  "gold_citation_gini_by_group": "2026-07-30T23:08:27.438000Z"
+ },
+ "pipeline_revision": "unknown",
+ "bounds": {
+  "year_min": 1950,
+  "year_max": 2026,
+  "partial_year": 2026,
+  "citation_age_year_min": 2012,
+  "citation_age_year_max": 2025,
+  "gini_cohort_min": 2012,
+  "gini_citation_year_max": 2025
+ },
+ "row_counts": {
+  "gold_ai_share_by_year": 154,
+  "gold_citation_age_by_year": 42,
+  "gold_citation_gini_by_subfield": 1001,
+  "gold_citation_gini_by_group": 273
+ }
+}
