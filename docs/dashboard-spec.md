@@ -89,6 +89,40 @@ The source dataset is production `openalex_analytics`. The reduced dev slice
 is not an input: in particular, it omits older cited works needed by Q2.
 The dashboard does not read staging, silver, raw data, or extraction state.
 
+### Exporter
+
+A single script, `tools/export_dashboard_snapshot.py`, produces the snapshot.
+It is run manually with `uv run` and belongs to the Python project, not to
+`dashboard/`. It reads production gold and writes `dashboard/data/`; it never
+runs dbt or writes to the warehouse.
+
+- **Client and credentials.** Use `google-cloud-bigquery`, an explicit
+  dependency in `pyproject.toml`. Impersonate the dbt service account named
+  by an environment variable documented in `.env.example`. Set
+  `maximum_bytes_billed` on every query.
+- **Queries.** One hard-coded query per relation:
+  `SELECT <enforced columns> FROM openalex_analytics.<relation> ORDER BY <grain keys>`.
+  The column lists are explicit in the script. Raise if the returned columns
+  differ from them.
+- **Types.** Typed client rows serialize to JSON numbers, booleans, strings,
+  and nulls. Raise if an integer falls outside JavaScript's safe range.
+- **Overlap detection.** Read every relation's last-modified time before and
+  after the queries. If any changed, raise and write nothing.
+- **Bounds.** Read the bound variables from `dbt_project.yml` and check that
+  the exported data agrees with them: publication-year range, partial-year
+  flag, Q2 citation years, and Q3 cohort floor and citation-year ceiling.
+  Raise on any mismatch; record the confirmed values in `snapshot.json`.
+- **Pipeline revision.** A required `--pipeline-revision` argument that also
+  accepts the literal `unknown`. The script never substitutes its own commit.
+- **Writes.** Write all five files to a temporary directory beside
+  `dashboard/data/`, then replace it with one rename. A partial snapshot is
+  never in place.
+- **Errors.** Known failures raise `ExportError` naming the relation and the
+  problem. Unknown errors propagate.
+
+Pytest covers the script with a fake client: column mismatch, the safe-integer
+limit, a modification time changing during export, and a bounds mismatch.
+
 ### Provenance and publication boundary
 
 A small `snapshot.json` records:
@@ -129,7 +163,7 @@ Trust gold's analytical invariants; do not duplicate dbt's statistical tests.
 Filtering, display formatting, and selecting chart columns belong here;
 recalculating medians, Ginis, or pooled results does not.
 
-Q3 null ratios mean undefined, not zero. Retain those rows in the table with an
+Q3 null ratios (Ginis and top-k shares) mean undefined, not zero. Retain those rows in the table with an
 explanation; omit an undefined scatter point and state the omission count. If
 the snapshot cannot support the intended headline, stop the release for content
 review rather than generating a replacement story automatically.
@@ -180,7 +214,9 @@ includes ages 0–5.
 ### Q3 — Broad citation reach can coexist with concentrated rewards
 
 Render one scatter plot for the 2020 publication cohort with five complete
-post-publication calendar years, 2021–2025:
+post-publication calendar years, 2021–2025. In gold this is the cell
+`publication_year = 2020, citation_age = 5`; `citation_age = N` is the
+cumulative window of ages 1 through N, so age-0 diagnostics are outside it.
 
 - x-axis: `zero_share`, labelled “Share with no citations in years 1–5”;
 - y-axis: `gini_cited_only`, labelled “Gini among cited papers”;
@@ -188,8 +224,18 @@ post-publication calendar years, 2021–2025:
 - highlight AI and CV/PR with labels and shapes as well as colour; and
 - also directly label Computer Graphics and Information Systems.
 
-Use subfield IDs for identity. Presentation labels may be shortened through
-an explicit mapping; an unmapped ID retains its published display name.
+Use subfield IDs for identity. Chart annotations use this explicit mapping;
+an unmapped ID retains its published display name. The detail table always
+shows the published display name.
+
+<!-- prettier-ignore -->
+| Subfield ID | Published display name | Chart label |
+|---|---|---|
+| 1702 | Artificial Intelligence | AI |
+| 1707 | Computer Vision and Pattern Recognition | Computer Vision & PR |
+| 1704 | Computer Graphics and Computer-Aided Design | Computer Graphics & CAD |
+| 1710 | Information Systems | Information Systems |
+
 Explain that Gini increases toward 1 as citations become more unequal.
 
 The intended finding is that AI and CV/PR combine relatively broad citation
@@ -200,7 +246,14 @@ a substantially larger uncited share. Check claims against unrounded values.
 
 The table includes every classified subfield in this cell, paper and citation
 counts, uncited share, both Ginis, and top-1%, top-5%, and top-10% citation
-shares. Top-k denominators are all cohort papers, including uncited papers.
+shares. For each subfield/cohort/window, top-k selects the
+`ceil(k × n_papers)` most-cited papers, using all cohort papers (including
+uncited ones) to set the cutoff. Its share is their window citations divided
+by the subfield/cohort's total window citations. The result does not depend
+on tie order. A share is null when total window citations are zero. The page
+states this plainly, e.g. “Top 10% share: the citations received by the
+most-cited tenth of all papers in the cohort, uncited papers included, as a
+share of all citations.”
 Explain that all-paper Gini also reflects the uncited share. Do not describe
 AI as the most concentrated subfield on the all-paper measure, or present a
 subfield comparison as a pooled AI-versus-rest result.
@@ -277,6 +330,12 @@ artifact. It never authenticates to GCP or starts Python pipeline services.
 Use the repository's Pages URL initially, with Astro configured for the actual
 site origin and repository base path. Navigation, scripts, data, and assets
 must work beneath that path. A custom domain is optional future work.
+
+Continuous integration for the dashboard is a separate workflow,
+`.github/workflows/dashboard-ci.yml`, triggered on push to `main` and on pull
+requests, filtered to `dashboard/**` and its own file. It runs `npm ci`,
+`check`, `test`, and `build` on the pinned Node version. The existing `ci.yml`
+is unchanged; it already covers the exporter's Python tests.
 
 A warehouse refresh does not trigger a dashboard release. Updating the data
 means preparing a new complete export, reviewing its claims and bounds, then
