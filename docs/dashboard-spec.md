@@ -231,10 +231,10 @@ shows the published display name.
 <!-- prettier-ignore -->
 | Subfield ID | Published display name | Chart label |
 |---|---|---|
-| 1702 | Artificial Intelligence | AI |
-| 1707 | Computer Vision and Pattern Recognition | Computer Vision & PR |
-| 1704 | Computer Graphics and Computer-Aided Design | Computer Graphics & CAD |
-| 1710 | Information Systems | Information Systems |
+| `https://openalex.org/subfields/1702` | Artificial Intelligence | AI |
+| `https://openalex.org/subfields/1707` | Computer Vision and Pattern Recognition | Computer Vision & PR |
+| `https://openalex.org/subfields/1704` | Computer Graphics and Computer-Aided Design | Computer Graphics & CAD |
+| `https://openalex.org/subfields/1710` | Information Systems | Information Systems |
 
 Explain that Gini increases toward 1 as citations become more unequal.
 

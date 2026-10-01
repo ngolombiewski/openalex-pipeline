@@ -89,7 +89,7 @@ def valid_rows() -> dict[str, list[dict[str, Any]]]:
     subfield = [
         {
             "publication_year": cohort,
-            "subfield_id": "1702",
+            "subfield_id": "https://openalex.org/subfields/1702",
             "subfield_display_name": "Artificial Intelligence",
             "is_ai_strict": True,
             "is_ai_broad": True,
@@ -283,7 +283,12 @@ def test_modification_during_export_raises_and_writes_nothing(
         (
             "gold_ai_share_by_year",
             lambda rows: rows[0].update(is_partial_year=True),
-            "partial years",
+            "partial-year flag",
+        ),
+        (
+            "gold_ai_share_by_year",
+            lambda rows: rows[-1].update(is_partial_year=False),
+            "partial-year flag",
         ),
         (
             "gold_citation_age_by_year",

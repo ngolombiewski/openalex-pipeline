@@ -211,10 +211,11 @@ def check_bounds(
 ) -> None:
     """Raise `ExportError` unless the exported data spans exactly the dbt bounds.
 
-    Q1 spans year_min..year_max with is_partial_year true exactly on
-    partial_year. Q2 spans citation_age_year_min..citation_age_year_max. Both
-    Q3 relations span cohorts gini_cohort_min..gini_citation_year_max - 1 and
-    reach exactly gini_citation_year_max as their last citation year.
+    Q1 spans year_min..year_max, and every row's is_partial_year is true
+    exactly when its publication_year is partial_year. Q2 spans
+    citation_age_year_min..citation_age_year_max. Both Q3 relations span cohorts
+    gini_cohort_min..gini_citation_year_max - 1 and reach exactly
+    gini_citation_year_max as their last citation year.
     """
 
     def expect(relation: str, what: str, actual: object, expected: object) -> None:
@@ -229,8 +230,21 @@ def check_bounds(
         (min(years), max(years)),
         (bounds["year_min"], bounds["year_max"]),
     )
-    partial = {row["publication_year"] for row in q1 if row["is_partial_year"]}
-    expect("gold_ai_share_by_year", "partial years", partial, {bounds["partial_year"]})
+    partial_year = bounds["partial_year"]
+    if partial_year not in years:
+        raise ExportError(
+            f"gold_ai_share_by_year: partial year {partial_year} is absent"
+        )
+    misflagged = sorted(
+        (row["publication_year"], row["variant"])
+        for row in q1
+        if row["is_partial_year"] != (row["publication_year"] == partial_year)
+    )
+    if misflagged:
+        raise ExportError(
+            f"gold_ai_share_by_year: partial-year flag disagrees with dbt bound "
+            f"{partial_year} on {misflagged}"
+        )
 
     q2_years = [row["citation_year"] for row in rows["gold_citation_age_by_year"]]
     expect(
