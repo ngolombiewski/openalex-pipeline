@@ -366,3 +366,29 @@ Implementation may proceed incrementally internally, but there are no required
 public deployments for individual questions. After authorized publication,
 smoke-check the public URL, charts, links, and assets. The deliverable is the
 complete three-question presentation.
+
+## 10. Implementation plan
+
+Implement in five chunks. Each chunk is one implementation and review cycle;
+the next starts only after review.
+
+1. **Exporter and snapshot.** `tools/export_dashboard_snapshot.py`, its tests,
+   and the `pyproject.toml` and `.env.example` changes. The owner then runs it
+   against prod and commits `dashboard/data/`. Later chunks build on real data,
+   and the snapshot is checked against the intended headlines early.
+2. **Scaffold and data boundary.** The Astro project, npm scripts, pinned Node
+   version, TypeScript row types, snapshot loader with `SnapshotDataError`,
+   fixed-view checks, boundary tests, and `dashboard-ci.yml`. No visible page.
+3. **Page layout and Q1.** Layout, typography, colours, introduction, Methods
+   skeleton, provenance, and the complete Q1 section with chart, qualification,
+   and exact-value table. This sets the patterns Q2 and Q3 follow, and is
+   reviewed in the browser.
+4. **Q2 and Q3.** Both sections, following chunk 3's patterns. Split them if
+   chunk 3 shows a section is larger than expected.
+5. **Acceptance and deployment.** Mobile, keyboard, disclosure, JavaScript-
+   disabled, base-path, network, and throttled-load checks from §9, plus the
+   manual Pages workflow. Ends with the complete local review; publication
+   needs separate authorization.
+
+Review of chunks 2–5 focuses on contracts, tests, and the rendered page against
+this spec, not on TypeScript idiom.
