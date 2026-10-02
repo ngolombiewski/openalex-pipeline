@@ -27,6 +27,8 @@ const description =
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="preload" href={fontUrl} as="font" type="font/woff2" crossorigin />
+    <!-- No icon: stops the browser requesting /favicon.ico outside the base path. -->
+    <link rel="icon" href="data:," />
     <style is:inline set:html={`@font-face{font-family:"Inter";src:url("${fontUrl}") format("woff2");font-weight:100 900;font-style:normal;font-display:swap;}`} />
   </head>
   <body>

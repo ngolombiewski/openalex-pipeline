@@ -1,6 +1,6 @@
 ---
 import { CITED_GROUPS, selectQ2, type Snapshot } from "../data/snapshot.ts";
-import { count, percent, stored } from "../format.ts";
+import { count, percent, tableRatio } from "../format.ts";
 import { GROUP_COLORS, GROUP_LABELS } from "../sections/groups.ts";
 import { q2Facts, q2Points } from "../sections/q2.ts";
 
@@ -44,10 +44,10 @@ const { firstYear, lastYear, firstMedian, lastMedian, lastShareLte5 } = q2Facts(
     <p class="qualification"><strong>What this measures.</strong> Ages are weighted by citation: a work cited 100 times in a year contributes 100 ages. Groups describe the work being cited, not the citing paper, so this does not show what AI papers themselves cite, nor that AI work becomes obsolete faster. Ages are differences between calendar years; “at most five years” includes ages 0 to 5. Citations run through {lastYear}.</p>
 
     <details>
-      <summary>Exact values, {firstYear}–{lastYear}</summary>
-      <div class="table-scroll" tabindex="0" role="region" aria-label="Citation age exact values">
+      <summary>Detailed values, {firstYear}–{lastYear}</summary>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Citation age detailed values">
         <table>
-          <caption>Ages in years. Shares are the fraction of citations to work at most 2, 5, or 10 years old, at stored precision.</caption>
+          <caption>Ages in years. Shares are the fraction of citations to work at most 2, 5, or 10 years old. Ratios rounded to at most three decimal places.</caption>
           <thead>
             <tr>
               <th scope="col">Year</th>
@@ -73,9 +73,9 @@ const { firstYear, lastYear, firstMedian, lastMedian, lastShareLte5 } = q2Facts(
                   <td>{r.p25_citation_age}</td>
                   <td>{r.median_citation_age}</td>
                   <td>{r.p75_citation_age}</td>
-                  <td>{stored(r.share_age_lte_2)}</td>
-                  <td>{stored(r.share_age_lte_5)}</td>
-                  <td>{stored(r.share_age_lte_10)}</td>
+                  <td>{tableRatio(r.share_age_lte_2)}</td>
+                  <td>{tableRatio(r.share_age_lte_5)}</td>
+                  <td>{tableRatio(r.share_age_lte_10)}</td>
                 </tr>
               ))
             }

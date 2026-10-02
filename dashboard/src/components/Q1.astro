@@ -1,6 +1,6 @@
 ---
 import type { Snapshot } from "../data/snapshot.ts";
-import { count, percent, stored } from "../format.ts";
+import { count, percent, tableRatio } from "../format.ts";
 import { COLORS } from "../palette.ts";
 import { VARIANT_LABELS, q1Facts, q1Points } from "../sections/q1.ts";
 
@@ -39,11 +39,11 @@ const { firstYear, latestComplete, partialYear, riseStart, latest, partial, stri
     <p class="qualification"><strong>Reading the history.</strong> OpenAlex assigns topics with a modern taxonomy applied retroactively, so the earlier line shows how today's taxonomy classifies older work, not how it was labelled at the time. The {partialYear} shares are within-year ratios for works indexed so far, not forecasts of the full year.</p>
 
     <details>
-      <summary>Exact values, {firstYear}–{partialYear}</summary>
-      <div class="table-scroll" tabindex="0" role="region" aria-label="AI share exact values">
+      <summary>Detailed values, {firstYear}–{partialYear}</summary>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="AI share detailed values">
         <table>
           <caption>
-            Share is AI works divided by CS works, shown at stored precision.
+            Share is AI works divided by CS works, rounded to at most three decimal places.
           </caption>
           <thead>
             <tr>
@@ -63,7 +63,7 @@ const { firstYear, latestComplete, partialYear, riseStart, latest, partial, stri
                   <td class="text">{VARIANT_LABELS[p.variant]}</td>
                   <td>{count(p.aiWorks)}</td>
                   <td>{count(p.csWorks)}</td>
-                  <td>{stored(p.share)}</td>
+                  <td>{tableRatio(p.share)}</td>
                   <td class="text">{p.partial ? "Partial" : "Complete"}</td>
                 </tr>
               ))

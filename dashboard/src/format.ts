@@ -15,7 +15,7 @@ export function gini(value: number): string {
   return value.toFixed(3);
 }
 
-/** A stored ratio at full stored precision, for detail tables. */
-export function stored(value: number): string {
-  return String(value);
+/** A ratio for detail tables: at most three decimals, trailing zeros trimmed: 0.3504 → "0.35". */
+export function tableRatio(value: number): string {
+  return String(Number(value.toFixed(3)));
 }

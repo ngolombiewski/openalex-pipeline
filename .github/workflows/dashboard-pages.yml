@@ -1,0 +1,74 @@
+name: dashboard-pages
+
+# Manual publication of a reviewed commit. Builds and deploys that one commit,
+# its snapshot data and narrative together; rollback is a run on an older one.
+# Only a full commit SHA is accepted, so the published source cannot move
+# between review and dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Full 40-character SHA of the reviewed commit to build and publish"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-pages
+  cancel-in-progress: false
+
+env:
+  ASTRO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - name: Require a full commit SHA
+        working-directory: .
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          if ! [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::ref must be a full 40-character commit SHA, got: $REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Record the published commit
+        run: echo "Publishing commit $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: dashboard/.node-version
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dashboard/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

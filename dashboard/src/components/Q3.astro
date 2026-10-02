@@ -1,6 +1,6 @@
 ---
 import { Q3_COHORT, Q3_WINDOW, selectQ3, type Snapshot } from "../data/snapshot.ts";
-import { count, gini, percent, stored } from "../format.ts";
+import { count, gini, percent, tableRatio } from "../format.ts";
 import { GROUP_COLORS } from "../sections/groups.ts";
 import { q3Facts, q3Points } from "../sections/q3.ts";
 
@@ -14,7 +14,7 @@ const { points, omitted } = q3Points(view);
 const { subfields, ai, cvPr, graphics } = q3Facts(snapshot);
 const firstYear = Q3_COHORT + 1;
 const lastYear = Q3_COHORT + Q3_WINDOW;
-const ratio = (value: number | null) => (value === null ? "undefined" : stored(value));
+const ratio = (value: number | null) => (value === null ? "undefined" : tableRatio(value));
 ---
 
 <section class="finding" id="concentration" aria-labelledby="concentration-heading">
@@ -36,10 +36,10 @@ const ratio = (value: number | null) => (value === null ? "undefined" : stored(v
     <p class="qualification"><strong>Reading the window.</strong> Citations in the publication year itself are excluded. “Uncited” means no citations during calendar years {firstYear}–{lastYear}, not never cited. These are the same five calendar years for every paper, not each paper's first five years, and citations for {lastYear} may still be arriving. This compares subfields; it is not a pooled comparison of AI with the rest of computer science.</p>
 
     <details>
-      <summary>Exact values, {Q3_COHORT} cohort, citations {firstYear}–{lastYear}</summary>
-      <div class="table-scroll" tabindex="0" role="region" aria-label="Citation concentration exact values">
+      <summary>Detailed values, {Q3_COHORT} cohort, citations {firstYear}–{lastYear}</summary>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Citation concentration detailed values">
         <table>
-          <caption>Ratios at stored precision. The all-paper Gini counts uncited papers as zeros, so it also reflects the uncited share. Top 10% share: the citations received by the most-cited tenth of all papers in the cohort, uncited papers included, as a share of all citations; top 1% and 5% likewise. A ratio is undefined when the subfield received no citations in the window.</caption>
+          <caption>Ratios rounded to at most three decimal places. The all-paper Gini counts uncited papers as zeros, so it also reflects the uncited share. Top 10% share: the citations received by the most-cited tenth of all papers in the cohort, uncited papers included, as a share of all citations; top 1% and 5% likewise. A ratio is undefined when the subfield received no citations in the window.</caption>
           <thead>
             <tr>
               <th scope="col">Subfield</th>
@@ -60,7 +60,7 @@ const ratio = (value: number | null) => (value === null ? "undefined" : stored(v
                   <th scope="row">{r.subfield_display_name}</th>
                   <td>{count(r.n_papers)}</td>
                   <td>{count(r.total_citations)}</td>
-                  <td>{stored(r.zero_share)}</td>
+                  <td>{tableRatio(r.zero_share)}</td>
                   <td>{ratio(r.gini)}</td>
                   <td>{ratio(r.gini_cited_only)}</td>
                   <td>{ratio(r.top1_share)}</td>

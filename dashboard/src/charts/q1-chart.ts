@@ -12,9 +12,20 @@ import type { Variant } from "../data/snapshot.ts";
 
 const STROKE: Record<Variant, string> = { strict: COLORS.ai, broad: COLORS.broadAi };
 const DASH = "4 4";
+const MARGIN_LEFT = 62;
+
+/** Year ticks: first, a round middle year, and last on a narrow plot; Plot's choice otherwise. */
+function yearTicks(points: Q1Point[], plotWidth: number): number[] | number {
+  if (plotWidth >= 300) return 10;
+  const years = points.map((p) => p.year);
+  const first = Math.min(...years);
+  const last = Math.max(...years);
+  return [first, Math.round((first + last) / 20) * 10, last];
+}
 
 function render(points: Q1Point[], width: number, height: number): Element {
   const narrow = width < 560;
+  const marginRight = narrow ? 84 : 100;
   const marks: Plot.Markish[] = [Plot.ruleY([0], { stroke: "currentColor", strokeOpacity: 0.4 })];
   for (const variant of ["broad", "strict"] as const) {
     const { solid, dashed } = q1Segments(points, variant);
@@ -63,12 +74,12 @@ function render(points: Q1Point[], width: number, height: number): Element {
   return Plot.plot({
     width,
     height,
-    marginLeft: 44,
-    marginRight: narrow ? 84 : 100,
+    marginLeft: MARGIN_LEFT,
+    marginRight,
     marginTop: 24,
     style: { fontFamily: "inherit", fontSize: "13px", fontVariantNumeric: "tabular-nums", background: "transparent" },
-    x: { label: null, tickFormat: "d", ticks: narrow ? 5 : 10 },
-    y: { label: "Share of CS works", domain: [0, 1], grid: true, tickFormat: (d: number) => `${Math.round(d * 100)}%` },
+    x: { label: null, tickFormat: "d", ticks: yearTicks(points, width - MARGIN_LEFT - marginRight) },
+    y: { label: "Share of CS works", domain: [0, 1], grid: true, ticks: [0, 0.25, 0.5, 0.75, 1], tickFormat: percent },
     marks,
   });
 }

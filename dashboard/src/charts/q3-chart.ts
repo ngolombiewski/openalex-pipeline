@@ -31,7 +31,7 @@ const NARROW: Record<string, Placement> = {
   [INFORMATION_SYSTEMS_ID]: { x: 0.98, y: 0.58, leader: [0.85, 0.6], wrap: true, textAnchor: "end", lineAnchor: "top" },
 };
 const MARGIN_LEFT = 48;
-const MARGIN_RIGHT = 24;
+const MARGIN_RIGHT = 28;
 /** Plot width from which the one-line placements fit. */
 const WIDE_FROM = 560;
 

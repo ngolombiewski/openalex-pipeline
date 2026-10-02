@@ -1,7 +1,7 @@
 /**
  * Q1 — AI's share of CS output.
  *
- * `q1Points` feeds both the chart and the exact-value table, so they show the
+ * `q1Points` feeds both the chart and the detail table, so they show the
  * same years, variants, and shares. `q1Facts` supplies every number the Q1
  * prose states and asserts the claims that prose makes; if the snapshot no
  * longer supports them it throws `SnapshotDataError`, stopping the build for

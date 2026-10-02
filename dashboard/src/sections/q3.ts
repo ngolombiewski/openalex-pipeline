@@ -1,7 +1,7 @@
 /**
  * Q3 — citation reach and concentration across CS subfields.
  *
- * The chart and the exact-value table both read `selectQ3`'s fixed cell.
+ * The chart and the detail table both read `selectQ3`'s fixed cell.
  * Subfield identity is the subfield ID; `Q3_CHART_LABELS` is the explicit map
  * of chart annotations, and the table always shows the published display name.
  * `q3Facts` supplies every number the Q3 prose states and asserts the claims

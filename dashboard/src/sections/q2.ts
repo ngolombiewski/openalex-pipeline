@@ -1,7 +1,7 @@
 /**
  * Q2 — the age of work receiving citation attention.
  *
- * The chart and the exact-value table both read `selectQ2`'s view. `q2Facts`
+ * The chart and the detail table both read `selectQ2`'s view. `q2Facts`
  * supplies every number the Q2 prose states and asserts the claims that prose
  * makes, throwing `SnapshotDataError` when the snapshot no longer supports them.
  */
