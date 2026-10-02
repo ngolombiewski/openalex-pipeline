@@ -1,7 +1,7 @@
 # Dashboard specification
 
-> **Status: approved; implementation in progress.** Chunks 1–3 (§10) are
-> done. Public deployment still needs separate authorization.
+> **Status: approved; chunk 5 in progress.** Chunks 1–4 (§10) are done.
+> Public deployment still needs separate authorization.
 
 ## 1. Purpose
 
@@ -211,6 +211,13 @@ Render a directly labelled line chart of `median_citation_age` by
 observations without smoothing. The intended baseline is 2012–2025: medians
 move from 8 to 5 years for AI, and 7 to 5 for the other two groups.
 
+Coincident series must remain identifiable: use distinct line patterns and
+nested marker shapes, drawing lines before markers. When all three end at the
+same median, state the shared value beside their direct labels. Do not jitter
+ages to separate groups. At narrow widths, use sparse, explicit year ticks
+including the first and last displayed years while retaining every annual
+observation.
+
 Show the latest year's `share_age_lte_5` as compact supporting values, not a
 second interactive chart. The reviewed baseline is 55.4% for AI, 57.2% for
 CV/PR, and 54.3% for rest of CS. The exact-value table includes every displayed
@@ -223,6 +230,10 @@ observations. This does not establish what AI-authored papers cite or prove
 faster intrinsic obsolescence. Label the snapshot through citation year 2025
 for the intended release. Ages are calendar-year differences; “at most five”
 includes ages 0–5.
+
+Define age as the recorded citation year minus the cited work's publication
+year. Same-year citations have age zero. Do not imply that the input contains
+individual citing-paper records or their publication dates.
 
 ### Q3 — Broad citation reach can coexist with concentrated rewards
 
@@ -251,11 +262,32 @@ shows the published display name.
 
 Explain that Gini increases toward 1 as citations become more unequal.
 
+Keep both axes on the full 0–1 domain. Show percentage ticks with one decimal
+and Gini ticks with three decimals, reducing tick density where needed. Use
+separate narrow-screen annotation placements, wrapping names and adding leader
+lines as needed; keep the mapped names readable without moving the data points.
+
 The intended finding is that AI and CV/PR combine relatively broad citation
 reach with high concentration among papers receiving citations. In the
 reviewed cell, AI's uncited share is 46.4% and cited-only Gini is 0.760; CV/PR's
 are 35.3% and 0.751. Computer Graphics has a similar cited-only Gini to AI but
 a substantially larger uncited share. Check claims against unrounded values.
+
+The release guards for this authored comparison are explicit:
+
+- AI and CV/PR must each be among the three highest defined cited-only Ginis
+  (ties at the third-highest value qualify).
+- Each must have an uncited share strictly below the median across classified
+  subfields in the cell.
+- Computer Graphics' cited-only Gini must differ from AI's by strictly less
+  than 0.01; both values must be defined.
+- Computer Graphics' uncited share must exceed AI's by at least 0.10
+  (10 percentage points).
+
+These are editorial release guards, not statistical significance tests. A
+failure stops the build for content review; it does not select a new story or
+silently change the thresholds. Pin the strict/inclusive threshold boundaries
+in the focused claim tests.
 
 The table includes every classified subfield in this cell, paper and citation
 counts, uncited share, both Ginis, and top-1%, top-5%, and top-10% citation
@@ -312,6 +344,8 @@ own containers. Use semantic headings, chart descriptions, visible focus,
 keyboard-operable disclosures, and adequate contrast. No essential information
 is available only on hover; tables provide exact values for touch and keyboard
 users. Respect reduced-motion preferences and avoid decorative animation.
+Essential chart marks, including neutral Q3 points, need at least 3:1 contrast
+against their background through a visible fill or outline.
 
 ## 7. Build and tooling
 
@@ -372,6 +406,12 @@ rendering, null handling, chart/table agreement, and numerical claims. Check
 Q1 record claims against full history and Q3 claims against the fixed cell and
 correct denominator. Do not mirror dbt's analytical test suite.
 
+Keep the existing focused data/helper tests and perform rendered chart/table,
+null-presentation, and layout checks during manual browser review. A new
+automated rendered-component, build-level, or browser regression suite is not
+required for this release. This does not remove the rendered acceptance checks
+or the focused numerical-claim tests.
+
 Before publication, type checks, tests, and the static build must pass. Review
 the built site in a browser at desktop and narrow mobile widths, including
 keyboard navigation, disclosures, chart labels, and JavaScript-disabled
@@ -380,6 +420,15 @@ repository-base-path behavior. Inspect network requests for accidental live
 data calls or unnecessary large assets, and measure first-load behavior under
 a throttled mobile connection; fix visible waiting and layout shifts before
 acceptance rather than relying on the framework's reputation for speed.
+
+Check desktop and narrow layouts at 1280, 768, 390, and 320px, including a
+320px viewport with a visible scrollbar. Exercise initial load and resizing
+across chart-layout breakpoints. Inspect actual label bounds, intersections,
+and attachment to points: absence of page-level overflow does not establish
+that SVG text is unclipped or readable. Confirm tied Q2 series remain
+identifiable and Q3's four annotations have visible separation. Record the
+reviewed revision, browser/viewport conditions, results, and any remaining
+limitations with the local acceptance review.
 
 Review the complete local experience before the first public deployment.
 Implementation may proceed incrementally internally, but there are no required
