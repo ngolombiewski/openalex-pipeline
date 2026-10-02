@@ -1,16 +1,67 @@
 ---
-// Placeholder until the reading page lands; building it validates the snapshot.
+import Methods from "../components/Methods.astro";
+import Q1 from "../components/Q1.astro";
 import { snapshot } from "../data/load.ts";
+import { COLORS } from "../palette.ts";
+import "../styles/global.css";
+
+const REPOSITORY_URL = "https://github.com/ngolombiewski/openalex-pipeline";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const fontUrl = `${base}/fonts/inter-latin-var.woff2`;
+const tokens = Object.entries(COLORS)
+  .map(([name, value]) => `--c-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${value};`)
+  .join(" ");
+const { bounds } = snapshot.meta;
+const title = "AI in Computer-Science Research";
+const description =
+  "A visual essay on AI's place in computer-science research, from a frozen snapshot of OpenAlex data.";
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" style={tokens}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI in Computer Science Research</title>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preload" href={fontUrl} as="font" type="font/woff2" crossorigin />
+    <style is:inline set:html={`@font-face{font-family:"Inter";src:url("${fontUrl}") format("woff2");font-weight:100 900;font-style:normal;font-display:swap;}`} />
   </head>
   <body>
-    <p>Snapshot exported {snapshot.meta.exported_at}.</p>
+    <header class="intro">
+      <div class="column">
+        <p class="eyebrow">OpenAlex · computer science · {bounds.year_min}–{bounds.year_max}</p>
+        <h1>{title}</h1>
+        <p class="lede">
+          Artificial intelligence accounts for a growing share of computer-science research. This page looks at how
+          large AI's share of the field has become, how quickly citation attention moves on to newer work, and how
+          unevenly citations are spread across a field's papers.
+        </p>
+        <p>
+          The figures come from OpenAlex, an open catalogue of scholarly works, processed by a data pipeline built for
+          this project. They are a frozen snapshot, not a live feed: every number on the page was reviewed together with
+          the text that describes it.
+        </p>
+        <nav class="toc" aria-label="Sections">
+          <ol>
+            <li><a href="#ai-share">AI's share of CS output</a></li>
+            <li><a href="#methods">Methods and data</a></li>
+          </ol>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <Q1 snapshot={snapshot} />
+      <Methods snapshot={snapshot} repositoryUrl={REPOSITORY_URL} />
+    </main>
+    <footer>
+      <div class="column">
+        <p>
+          Data: <a href="https://openalex.org">OpenAlex</a> (CC0). Typeface: Inter, under the
+          <a href={`${base}/fonts/Inter-OFL.txt`}>SIL Open Font License</a>.
+          <a href={REPOSITORY_URL}>Source on GitHub</a>.
+        </p>
+      </div>
+    </footer>
   </body>
 </html>

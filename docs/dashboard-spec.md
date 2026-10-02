@@ -1,6 +1,6 @@
 # Dashboard specification
 
-> **Status: approved; implementation in progress.** Chunks 1–2 (§10) are
+> **Status: approved; implementation in progress.** Chunks 1–3 (§10) are
 > done. Public deployment still needs separate authorization.
 
 ## 1. Purpose

@@ -1,0 +1,269 @@
+/* One light theme. Colour tokens for series come from src/palette.ts via the layout. */
+
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("Helvetica"), local("Liberation Sans");
+  size-adjust: 107.12%;
+  ascent-override: 90.43%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: light;
+  --bg: var(--c-paper);
+  --ink: var(--c-ink);
+  --muted: #5c5a55;
+  --rule: #e4e1da;
+  --panel: #f3f1ec;
+  --link: #1d5f8a;
+  --focus: #1d6fa5;
+  --measure: 40rem;
+  --wide: 42rem;
+  font-family: Inter, "Inter Fallback", system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  font-feature-settings: "calt";
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+main,
+header.intro,
+footer {
+  padding-inline: 16px;
+}
+
+.column {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
+.wide {
+  max-width: var(--wide);
+  margin-inline: auto;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2rem, 1.4rem + 2.6vw, 3rem);
+  font-weight: 750;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: clamp(1.4rem, 1.15rem + 1.1vw, 1.9rem);
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 2rem 0 0.5rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.15em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.eyebrow {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+header.intro {
+  padding-block: 4rem 2rem;
+}
+
+.lede {
+  font-size: 1.2rem;
+  color: var(--ink);
+}
+
+nav.toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.95rem;
+}
+
+section.finding,
+section.methods {
+  padding-block: 3rem;
+  border-top: 1px solid var(--rule);
+}
+
+figure.chart {
+  margin: 1.5rem auto;
+}
+
+.chart-canvas {
+  height: 300px;
+}
+
+@media (min-width: 640px) {
+  .chart-canvas {
+    height: 380px;
+  }
+}
+
+.chart-canvas svg {
+  display: block;
+  overflow: visible;
+}
+
+figure.chart figcaption {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+.swatch {
+  font-weight: 600;
+}
+
+.qualification {
+  border-left: 3px solid var(--rule);
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.qualification strong {
+  color: var(--ink);
+}
+
+details {
+  margin-top: 1.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+details > summary {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  max-height: 32rem;
+  overflow-y: auto;
+  background: var(--bg);
+  border-top: 1px solid var(--rule);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 0.4rem 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+}
+
+th:first-child,
+td:first-child,
+th.text,
+td.text {
+  text-align: left;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  font-weight: 600;
+}
+
+caption {
+  text-align: left;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+dl.provenance {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  font-size: 0.95rem;
+}
+
+dl.provenance dt {
+  color: var(--muted);
+}
+
+dl.provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+footer {
+  padding-block: 2rem 4rem;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

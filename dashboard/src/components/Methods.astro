@@ -1,0 +1,59 @@
+---
+import { provenance } from "../data/provenance.ts";
+import type { Snapshot } from "../data/snapshot.ts";
+import { count } from "../format.ts";
+
+interface Props {
+  snapshot: Snapshot;
+  repositoryUrl: string;
+}
+
+const { snapshot, repositoryUrl } = Astro.props;
+const { bounds } = snapshot.meta;
+const source = provenance(snapshot.meta);
+---
+
+<section class="methods" id="methods" aria-labelledby="methods-heading">
+  <div class="column">
+    <p class="eyebrow">Methods and data</p>
+    <h2 id="methods-heading">How these numbers were produced</h2>
+
+    <h3>The corpus</h3>
+    <p>The corpus is every OpenAlex work whose primary topic belongs to the Computer Science field, published from {bounds.year_min} to {bounds.year_max}, excluding retracted works and paratext such as front matter and indexes. Duplicate records are resolved to the most recently updated version. {bounds.partial_year} is partial: it contains the works indexed when the corpus was extracted.</p>
+
+    <h3>Classification</h3>
+    <p>Each work is classified by the subfield of its primary topic. Two subfields matter here: Artificial Intelligence (subfield 1702) and Computer Vision and Pattern Recognition (CV/PR, subfield 1707). AI's share is shown both for AI alone and for AI and CV/PR combined. Works without a primary subfield stay in the denominator and count as neither.</p>
+
+    <h3>What “year” means</h3>
+    <p>The <em>publication year</em> places a work in time for AI's share. Later sections use the <em>citation year</em>, when a citation was made, and the <em>publication cohort</em>, the set of works published in one year whose citations are then followed forward.</p>
+    <!-- Chunk 4: citation weighting, Q3 observation window and denominators,
+         negative citation ages, pooled versus subfield Ginis. -->
+
+    <h3>Snapshot provenance</h3>
+    <p>The page is built from a frozen export of the pipeline's production results, reviewed and committed with the site. The export date records when the results were copied, not when the underlying data was last refreshed.</p>
+    <dl class="provenance">
+      <dt>Snapshot exported</dt>
+      <dd><time datetime={source.exportedAtIso}>{source.exportedAt}</time></dd>
+      <dt>Pipeline revision</dt>
+      <dd>{source.pipelineRevision}</dd>
+      <dt>Publication years</dt>
+      <dd>{bounds.year_min}–{bounds.year_max} ({bounds.partial_year} partial)</dd>
+      <dt>Citation-age years</dt>
+      <dd>{bounds.citation_age_year_min}–{bounds.citation_age_year_max}</dd>
+      <dt>Concentration cohorts</dt>
+      <dd>From {bounds.gini_cohort_min}, citations through {bounds.gini_citation_year_max}</dd>
+      {
+        source.sourceTables.map(({ table, rows }) => (
+          <>
+            <dt>Source table</dt>
+            <dd>
+              <code>{table}</code> ({count(rows)} rows)
+            </dd>
+          </>
+        ))
+      }
+    </dl>
+
+    <p>The pipeline, its tests, and this page's source are in the <a href={repositoryUrl}>project repository</a>.</p>
+  </div>
+</section>

@@ -1,0 +1,87 @@
+---
+import type { Snapshot } from "../data/snapshot.ts";
+import { count, percent, stored } from "../format.ts";
+import { COLORS } from "../palette.ts";
+import { VARIANT_LABELS, q1Facts, q1Points } from "../sections/q1.ts";
+
+interface Props {
+  snapshot: Snapshot;
+}
+
+const { snapshot } = Astro.props;
+const points = q1Points(snapshot);
+const facts = q1Facts(snapshot);
+const first = (variant: string) => points.find((p) => p.year === facts.firstYear && p.variant === variant)!.share;
+const { firstYear, latestComplete, partialYear, riseStart, latest, partial, strictEarlierHigh, historyStart } = facts;
+---
+
+<section class="finding" id="ai-share" aria-labelledby="ai-share-heading">
+  <div class="column">
+    <p class="eyebrow">1 · AI's share of CS output</p>
+    <h2 id="ai-share-heading">AI's share of computer-science research has risen every year since {riseStart.strict.year}</h2>
+    <p>In {riseStart.strict.year}, <span class="swatch" style={`color:${COLORS.ai}`}>AI alone</span> accounted for {percent(riseStart.strict.share)} of computer-science works, its lowest share since {firstYear}, and <span class="swatch" style={`color:${COLORS.broadAi}`}>AI together with CV/PR</span> for {percent(riseStart.broad.share)}. Both have grown every year since, reaching {percent(latest.strict)} and {percent(latest.broad)} in {latestComplete}, the last complete year. In the first part of {partialYear} they stand at {percent(partial.strict)} and {percent(partial.broad)}.</p>
+    <p>The combined AI + CV/PR share in {latestComplete} is the highest of any complete year back to {historyStart}. The AI-only share is not: it remains just below its {strictEarlierHigh.year} level of {percent(strictEarlierHigh.share)}.</p>
+  </div>
+
+  <figure class="chart wide" aria-labelledby="q1-caption">
+    <div
+      class="chart-canvas"
+      id="q1-chart"
+      role="img"
+      aria-label={`Line chart of AI's share of computer-science works, ${firstYear} to ${partialYear}. AI only falls from ${percent(first("strict"))} in ${firstYear} to ${percent(riseStart.strict.share)} in ${riseStart.strict.year}, then rises to ${percent(latest.strict)} in ${latestComplete}; AI + CV/PR moves from ${percent(first("broad"))} to ${percent(riseStart.broad.share)} and then ${percent(latest.broad)}. ${partialYear} is partial: ${percent(partial.strict)} and ${percent(partial.broad)}.`}
+    >
+      <noscript><p>The chart needs JavaScript. Every plotted value is in the table below.</p></noscript>
+    </div>
+    <figcaption id="q1-caption">Share of computer-science works by publication year, {firstYear}–{partialYear}. The dashed segment and hollow markers show {partialYear}, which is partial. <strong>AI only</strong> counts works whose primary subfield is Artificial Intelligence (OpenAlex subfield 1702). <strong>AI + CV/PR</strong> also counts Computer Vision and Pattern Recognition (subfield 1707).</figcaption>
+  </figure>
+
+  <div class="column">
+    <p class="qualification"><strong>Reading the history.</strong> OpenAlex assigns topics with a modern taxonomy applied retroactively, so the earlier line shows how today's taxonomy classifies older work, not how it was labelled at the time. The {partialYear} shares are within-year ratios for works indexed so far, not forecasts of the full year.</p>
+
+    <details>
+      <summary>Exact values, {firstYear}–{partialYear}</summary>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="AI share exact values">
+        <table>
+          <caption>
+            Share is AI works divided by CS works, shown at stored precision.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Year</th>
+              <th scope="col" class="text">Definition</th>
+              <th scope="col">AI works</th>
+              <th scope="col">CS works</th>
+              <th scope="col">Share</th>
+              <th scope="col" class="text">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              points.map((p) => (
+                <tr>
+                  <th scope="row">{p.year}</th>
+                  <td class="text">{VARIANT_LABELS[p.variant]}</td>
+                  <td>{count(p.aiWorks)}</td>
+                  <td>{count(p.csWorks)}</td>
+                  <td>{stored(p.share)}</td>
+                  <td class="text">{p.partial ? "Partial" : "Complete"}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <script type="application/json" id="q1-data" set:html={JSON.stringify(points)} />
+</section>
+
+<script>
+  import { mountQ1 } from "../charts/q1-chart.ts";
+  import type { Q1Point } from "../sections/q1.ts";
+
+  const data = document.getElementById("q1-data");
+  const container = document.getElementById("q1-chart");
+  if (data && container) mountQ1(container, JSON.parse(data.textContent ?? "[]") as Q1Point[]);
+</script>
