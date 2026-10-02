@@ -1,0 +1,98 @@
+---
+import { CITED_GROUPS, selectQ2, type Snapshot } from "../data/snapshot.ts";
+import { count, percent, stored } from "../format.ts";
+import { GROUP_COLORS, GROUP_LABELS } from "../sections/groups.ts";
+import { q2Facts, q2Points } from "../sections/q2.ts";
+
+interface Props {
+  snapshot: Snapshot;
+}
+
+const { snapshot } = Astro.props;
+const view = selectQ2(snapshot);
+const points = q2Points(view);
+const { firstYear, lastYear, firstMedian, lastMedian, lastShareLte5 } = q2Facts(snapshot);
+---
+
+<section class="finding" id="citation-age" aria-labelledby="citation-age-heading">
+  <div class="column">
+    <p class="eyebrow">2 · The age of cited work</p>
+    <h2 id="citation-age-heading">Citation attention has shifted toward younger work</h2>
+    <p>Citation age is the year a citation was recorded minus the cited work's publication year; same-year citations have age zero. In {firstYear}, the median citation to an <span class="swatch" style={`color:${GROUP_COLORS.ai}`}>AI</span> paper went to work {firstMedian.ai} years old, against {firstMedian.cv_pr} years for <span class="swatch" style={`color:${GROUP_COLORS.cv_pr}`}>CV/PR</span> and {firstMedian.rest_cs} for the <span class="swatch" style={`color:${GROUP_COLORS.rest_cs}`}>rest of CS</span>. By {lastYear} the median was {lastMedian.ai} years for all three.</p>
+  </div>
+
+  <figure class="chart wide" aria-labelledby="q2-caption">
+    <div class="chart-canvas" id="q2-chart" role="img" aria-label={`Line chart of median citation age by citation year, ${firstYear} to ${lastYear}. ${CITED_GROUPS.map((g) => `${GROUP_LABELS[g]}: ${firstMedian[g]} years in ${firstYear}, ${lastMedian[g]} in ${lastYear}`).join("; ")}.`}>
+      <noscript><p>The chart needs JavaScript. Every plotted value is in the table below.</p></noscript>
+    </div>
+    <figcaption id="q2-caption">Median age, in years, of the work receiving each citation, by citation year, {firstYear}–{lastYear}. Groups are defined by the cited work's subfield: AI (1702), CV/PR (1707), and the rest of computer science. Markers differ by group: squares for AI, triangles for CV/PR, circles for the rest of CS.</figcaption>
+  </figure>
+
+  <div class="column">
+    <p>Share of {lastYear} citations going to work at most five years old:</p>
+    <ul class="stats" aria-label={`Share of ${lastYear} citations to work at most five years old`}>
+      {
+        CITED_GROUPS.map((g) => (
+          <li>
+            <span class="stat-value" style={`color:${GROUP_COLORS[g]}`}>{percent(lastShareLte5[g])}</span>
+            <span class="stat-label">{GROUP_LABELS[g]}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="qualification"><strong>What this measures.</strong> Ages are weighted by citation: a work cited 100 times in a year contributes 100 ages. Groups describe the work being cited, not the citing paper, so this does not show what AI papers themselves cite, nor that AI work becomes obsolete faster. Ages are differences between calendar years; “at most five years” includes ages 0 to 5. Citations run through {lastYear}.</p>
+
+    <details>
+      <summary>Exact values, {firstYear}–{lastYear}</summary>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Citation age exact values">
+        <table>
+          <caption>Ages in years. Shares are the fraction of citations to work at most 2, 5, or 10 years old, at stored precision.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Year</th>
+              <th scope="col" class="text">Cited group</th>
+              <th scope="col">Citations</th>
+              <th scope="col">Cited works</th>
+              <th scope="col">25th pct age</th>
+              <th scope="col">Median age</th>
+              <th scope="col">75th pct age</th>
+              <th scope="col">Share ≤ 2</th>
+              <th scope="col">Share ≤ 5</th>
+              <th scope="col">Share ≤ 10</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              view.map((r) => (
+                <tr>
+                  <th scope="row">{r.citation_year}</th>
+                  <td class="text">{GROUP_LABELS[r.cited_group]}</td>
+                  <td>{count(r.citation_events)}</td>
+                  <td>{count(r.cited_works)}</td>
+                  <td>{r.p25_citation_age}</td>
+                  <td>{r.median_citation_age}</td>
+                  <td>{r.p75_citation_age}</td>
+                  <td>{stored(r.share_age_lte_2)}</td>
+                  <td>{stored(r.share_age_lte_5)}</td>
+                  <td>{stored(r.share_age_lte_10)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <script type="application/json" id="q2-data" set:html={JSON.stringify(points)} />
+</section>
+
+<script>
+  import { mountQ2 } from "../charts/q2-chart.ts";
+  import type { Q2Point } from "../sections/q2.ts";
+
+  const data = document.getElementById("q2-data");
+  const container = document.getElementById("q2-chart");
+  if (data && container) mountQ2(container, JSON.parse(data.textContent ?? "[]") as Q2Point[]);
+</script>

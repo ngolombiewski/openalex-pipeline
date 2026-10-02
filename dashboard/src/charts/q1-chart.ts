@@ -1,9 +1,10 @@
 /**
  * Browser rendering of the Q1 chart. Data arrives as the page's embedded
- * `Q1Point[]`; the chart redraws when its container's width changes.
+ * `Q1Point[]`.
  */
 import * as Plot from "@observablehq/plot";
 
+import { mountChart } from "./mount.ts";
 import { COLORS } from "../palette.ts";
 import { percent } from "../format.ts";
 import { VARIANT_LABELS, q1Segments, type Q1Point } from "../sections/q1.ts";
@@ -12,7 +13,7 @@ import type { Variant } from "../data/snapshot.ts";
 const STROKE: Record<Variant, string> = { strict: COLORS.ai, broad: COLORS.broadAi };
 const DASH = "4 4";
 
-function render(points: Q1Point[], width: number, height: number): SVGSVGElement | HTMLElement {
+function render(points: Q1Point[], width: number, height: number): Element {
   const narrow = width < 560;
   const marks: Plot.Markish[] = [Plot.ruleY([0], { stroke: "currentColor", strokeOpacity: 0.4 })];
   for (const variant of ["broad", "strict"] as const) {
@@ -73,13 +74,5 @@ function render(points: Q1Point[], width: number, height: number): SVGSVGElement
 }
 
 export function mountQ1(container: HTMLElement, points: Q1Point[]): void {
-  let drawnWidth = 0;
-  const draw = () => {
-    const width = Math.floor(container.clientWidth);
-    if (width === drawnWidth || width === 0) return;
-    drawnWidth = width;
-    container.replaceChildren(render(points, width, container.clientHeight));
-  };
-  new ResizeObserver(draw).observe(container);
-  draw();
+  mountChart(container, (width, height) => render(points, width, height));
 }

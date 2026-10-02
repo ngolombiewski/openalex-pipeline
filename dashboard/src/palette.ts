@@ -9,7 +9,7 @@ export const COLORS = {
   broadAi: "#7c2d12",
   cvPr: "#1d6fa5",
   restCs: "#4d7c0f",
-  neutral: "#9ca3af",
+  neutral: "#6b7280",
   paper: "#fbfaf7",
   ink: "#1c1b19",
 } as const;

@@ -1,6 +1,8 @@
 ---
 import Methods from "../components/Methods.astro";
 import Q1 from "../components/Q1.astro";
+import Q2 from "../components/Q2.astro";
+import Q3 from "../components/Q3.astro";
 import { snapshot } from "../data/load.ts";
 import { COLORS } from "../palette.ts";
 import "../styles/global.css";
@@ -45,6 +47,8 @@ const description =
         <nav class="toc" aria-label="Sections">
           <ol>
             <li><a href="#ai-share">AI's share of CS output</a></li>
+            <li><a href="#citation-age">The age of cited work</a></li>
+            <li><a href="#concentration">Citation reach and concentration</a></li>
             <li><a href="#methods">Methods and data</a></li>
           </ol>
         </nav>
@@ -52,6 +56,8 @@ const description =
     </header>
     <main>
       <Q1 snapshot={snapshot} />
+      <Q2 snapshot={snapshot} />
+      <Q3 snapshot={snapshot} />
       <Methods snapshot={snapshot} repositoryUrl={REPOSITORY_URL} />
     </main>
     <footer>

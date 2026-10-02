@@ -1,6 +1,7 @@
 ---
 import { provenance } from "../data/provenance.ts";
 import type { Snapshot } from "../data/snapshot.ts";
+import { Q3_COHORT, Q3_WINDOW } from "../data/snapshot.ts";
 import { count } from "../format.ts";
 
 interface Props {
@@ -26,8 +27,11 @@ const source = provenance(snapshot.meta);
 
     <h3>What “year” means</h3>
     <p>The <em>publication year</em> places a work in time for AI's share. Later sections use the <em>citation year</em>, when a citation was made, and the <em>publication cohort</em>, the set of works published in one year whose citations are then followed forward.</p>
-    <!-- Chunk 4: citation weighting, Q3 observation window and denominators,
-         negative citation ages, pooled versus subfield Ginis. -->
+    <h3>Citation age</h3>
+    <p>A citation's age is the citing year minus the cited work's publication year. Ages are weighted by citation, so heavily cited works contribute many observations, and groups are defined by the cited work's subfield. Citations from {bounds.citation_age_year_min} to {bounds.citation_age_year_max} are counted. Citation records that imply a negative age, a citation made before the cited work was published, are invalid and excluded.</p>
+
+    <h3>Citation concentration</h3>
+    <p>Concentration follows each publication cohort forward through cumulative windows of calendar years after publication; the page shows the {Q3_COHORT} cohort over {Q3_COHORT + 1}–{Q3_COHORT + Q3_WINDOW}. Citations in the publication year are excluded from the window. Every paper in the cohort is in the denominator, including papers with no citations in that window: they set the uncited share, count as zeros in the all-paper Gini, and count toward the top-k cutoffs. The Gini among cited papers uses only papers with at least one citation in the window. Ginis for a combined group cannot be obtained by averaging subfield Ginis, because inequality between subfields also contributes; pooled values have to be computed from the papers themselves.</p>
 
     <h3>Snapshot provenance</h3>
     <p>The page is built from a frozen export of the pipeline's production results, reviewed and committed with the site. The export date records when the results were copied, not when the underlying data was last refreshed.</p>
