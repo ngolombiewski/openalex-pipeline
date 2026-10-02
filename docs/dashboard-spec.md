@@ -157,7 +157,20 @@ The build checks the file boundary: required files, row shapes/types, nonempty
 relations, recorded bounds/counts, and the rows needed by the fixed views.
 Known snapshot errors raise `SnapshotDataError`, identify the file and problem,
 and fail the build. Unknown errors propagate. There is no warehouse fallback
-or substituted dataset.
+or substituted dataset. The snapshot files are static imports, so a missing
+file or invalid JSON fails the build as a bundler error rather than a
+`SnapshotDataError`; the typed contract begins once the files have parsed.
+
+Recorded bounds are reconciled with the data as the exporter reconciles them
+with dbt: each relation's year extent equals its recorded bounds, and every Q1
+row's partial-year flag matches the recorded partial year. The Q3 cell must
+contain every classified subfield that occurs in its relation, not only the
+labelled ones.
+
+Provenance fields are checked for presence and type only. Before Methods
+renders them, the build also checks their meaning: `exported_at` is a UTC
+timestamp, and source table names are fully qualified production
+`openalex_analytics` tables.
 
 Trust gold's analytical invariants; do not duplicate dbt's statistical tests.
 Filtering, display formatting, and selecting chart columns belong here;
@@ -381,7 +394,8 @@ the next starts only after review.
    fixed-view checks, boundary tests, and `dashboard-ci.yml`. No visible page.
 3. **Page layout and Q1.** Layout, typography, colours, introduction, Methods
    skeleton, provenance, and the complete Q1 section with chart, qualification,
-   and exact-value table. This sets the patterns Q2 and Q3 follow, and is
+   and exact-value table. Includes the provenance checks from §4 that apply
+   once Methods renders them. This sets the patterns Q2 and Q3 follow, and is
    reviewed in the browser.
 4. **Q2 and Q3.** Both sections, following chunk 3's patterns. Split them if
    chunk 3 shows a section is larger than expected.
@@ -389,6 +403,11 @@ the next starts only after review.
    disabled, base-path, network, and throttled-load checks from §9, plus the
    manual Pages workflow. Ends with the complete local review; publication
    needs separate authorization.
+
+Each section's §9 tests land with that section, not in chunk 5: partial-year
+rendering, null-point omission counts, chart/table agreement, and the numerical
+claims in its prose. A green suite in an earlier chunk is not evidence for
+presentation that chunk did not build.
 
 Review of chunks 2–5 focuses on contracts, tests, and the rendered page against
 this spec, not on TypeScript idiom.

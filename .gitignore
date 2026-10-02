@@ -30,6 +30,8 @@ dbt/target/
 
 # Data (can get large)
 data/
+!dashboard/data/
+!dashboard/src/data/
 *.parquet
 *.jsonl
 
