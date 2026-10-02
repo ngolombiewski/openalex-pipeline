@@ -35,7 +35,7 @@ Local development, tests, builds, and publication consume committed files and
 need no GCP credentials or running pipeline. Optional chart interactions run
 in the browser. Data and narrative change only through a reviewed release.
 
-The first version includes one reading page, three primary charts, exact-value
+The first version includes one reading page, three primary charts, detail
 tables, methods, snapshot provenance, and a repository link. It has no live
 queries, refresh timers, authentication, saved state, analytics, server-side
 functions, containers, dashboard Terraform, or dashboard-specific spend guards.
@@ -54,7 +54,7 @@ The page proceeds through:
 
 Use anchor links for navigation. Each analytical section has a finding-led
 heading, a short interpretation, one chart, a nearby qualification, and an
-expandable exact-value table. Methods and tables may be collapsed; essential
+expandable detail table. Methods and tables may be collapsed; essential
 qualifications remain visible. There is no separate Overview duplicating the
 charts, sidebar of analytical pages, or global year control.
 
@@ -220,7 +220,7 @@ observation.
 
 Show the latest year's `share_age_lte_5` as compact supporting values, not a
 second interactive chart. The reviewed baseline is 55.4% for AI, 57.2% for
-CV/PR, and 54.3% for rest of CS. The exact-value table includes every displayed
+CV/PR, and 54.3% for rest of CS. The detail table includes every displayed
 year/group, citation events, cited works, the three age quantiles, and the
 shares aged at most 2, 5, and 10 years.
 
@@ -334,15 +334,22 @@ and tables. Commit a single Latin-subset variable `.woff2` file under
 swap causes no visible layout shift. Use tabular figures in tables and chart
 axes.
 Use integer counts and ages, one decimal place for percentages, and three
-decimals for Ginis in charts and prose. Preserve additional stored precision
-in detail tables. Numerical text comes from snapshot values where practical;
+decimals for Ginis in charts and prose. In detail tables, round shares and
+Ginis to at most three digits after the decimal point and trim trailing zeros
+(for example, 0.3504 → 0.35 and 0.7506 → 0.751). Shares remain fractions on
+the 0–1 scale, not percentages. Preserve integer counts and ages and keep null
+ratios labelled as undefined. Describe these as “Values” or “Detailed values”,
+not “Exact values”; captions state that ratios are rounded to at most three
+decimal places. Keep full precision in the committed snapshot and use
+unrounded values for claim checks and chart coordinates.
+Numerical text comes from snapshot values where practical;
 interpretation is authored and reviewed with that snapshot.
 
 At mobile widths the page is a single column, labels remain readable, and
 there is no page-level horizontal overflow. Wide tables may scroll in their
 own containers. Use semantic headings, chart descriptions, visible focus,
 keyboard-operable disclosures, and adequate contrast. No essential information
-is available only on hover; tables provide exact values for touch and keyboard
+is available only on hover; tables provide numerical values for touch and keyboard
 users. Respect reduced-motion preferences and avoid decorative animation.
 Essential chart marks, including neutral Q3 points, need at least 3:1 contrast
 against their background through a visible fill or outline.
@@ -364,7 +371,7 @@ the initial tool set. Additional dependencies need agreement before they are add
 
 Build static HTML for the narrative and tables. Use Observable Plot for the
 charts, with browser code limited to rendering, responsiveness, and useful
-inspection. The narrative and exact values remain available if JavaScript is
+inspection. The narrative and detail tables remain available if JavaScript is
 disabled. Bundle dependencies and assets with the site rather than loading
 chart libraries from third-party CDNs. Only ship data used by the page; the
 full four-relation snapshot remains in source control.
@@ -450,7 +457,7 @@ the next starts only after review.
    fixed-view checks, boundary tests, and `dashboard-ci.yml`. No visible page.
 3. **Page layout and Q1.** Layout, typography, colours, introduction, Methods
    skeleton, provenance, and the complete Q1 section with chart, qualification,
-   and exact-value table. Includes the provenance checks from §4 that apply
+   and detail table. Includes the provenance checks from §4 that apply
    once Methods renders them. The implementing agent drafts all prose from §5's
    intended findings and the snapshot values; the owner edits it during the
    browser review. This sets the patterns Q2 and Q3 follow, and is reviewed in
