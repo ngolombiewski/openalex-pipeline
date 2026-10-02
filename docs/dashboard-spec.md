@@ -317,9 +317,10 @@ required. Pin the tested Node version for CI and record it in project metadata.
 
 Provide `npm run dev`, `npm run check`, `npm test`, `npm run build`, and
 `npm run preview`. Use `npm ci` for locked installs. TypeScript checking is
-explicit; a successful Astro build alone is not evidence that types pass.
-Astro, Observable Plot, TypeScript, and Astro's checker form the initial tool
-set. Additional dependencies need agreement before they are added.
+explicit and covers tests as well as source; a successful Astro build alone is
+not evidence that types pass. Astro, Observable Plot, TypeScript, Astro's
+checker, and Node's type definitions (pinned to the Node major version) form
+the initial tool set. Additional dependencies need agreement before they are added.
 
 Build static HTML for the narrative and tables. Use Observable Plot for the
 charts, with browser code limited to rendering, responsiveness, and useful
