@@ -69,6 +69,10 @@ Read only when needed:
   interpreting any gold output or judging whether a run has regressed. Rewrite
   after a prod run that changes results.
 
+- `docs/dashboard-spec.md` — the dashboard's contract and chunked
+  implementation plan. Read before any work under `dashboard/` or on the
+  snapshot exporter.
+
 Read only when explicitly prompted to:
 
 - `docs/design-archive/` — implemented design contracts and superseded designs,

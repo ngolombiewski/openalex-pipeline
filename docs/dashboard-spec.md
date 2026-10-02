@@ -1,8 +1,7 @@
 # Dashboard specification
 
-> **Status: draft for review, 2026-09-20.** The architecture is agreed. This
-> document specifies the first version; it does not authorize implementation
-> or publication.
+> **Status: approved; implementation in progress.** Chunks 1–2 (§10) are
+> done. Public deployment still needs separate authorization.
 
 ## 1. Purpose
 
@@ -129,7 +128,8 @@ A small `snapshot.json` records:
 
 - export time in UTC and fully qualified source table names;
 - the pipeline code revision associated with the reviewed results, explicitly
-  recording an unknown revision rather than substituting the exporter revision;
+  recording an unknown revision rather than substituting the exporter revision
+  (Methods renders `unknown` as “Pipeline revision: not recorded”);
 - corpus publication bounds and the partial publication year;
 - Q2 citation-year bounds and Q3 cohort floor and citation-year ceiling; and
 - exported row counts for each relation.
@@ -295,6 +295,12 @@ definition, not assigned CV/PR's identity. Pair colour with labels, line styles,
 or shapes. Use one intentionally designed light theme for the first release.
 
 Typography, spacing, and annotation placement should support the reading order.
+Use one self-hosted typeface, Inter (SIL Open Font License), for prose, charts,
+and tables. Commit a single Latin-subset variable `.woff2` file under
+`dashboard/` with its licence file, not as an npm package. Load it with
+`font-display: swap` and a metric-adjusted system sans-serif fallback, so the
+swap causes no visible layout shift. Use tabular figures in tables and chart
+axes.
 Use integer counts and ages, one decimal place for percentages, and three
 decimals for Ginis in charts and prose. Preserve additional stored precision
 in detail tables. Numerical text comes from snapshot values where practical;
@@ -396,8 +402,10 @@ the next starts only after review.
 3. **Page layout and Q1.** Layout, typography, colours, introduction, Methods
    skeleton, provenance, and the complete Q1 section with chart, qualification,
    and exact-value table. Includes the provenance checks from §4 that apply
-   once Methods renders them. This sets the patterns Q2 and Q3 follow, and is
-   reviewed in the browser.
+   once Methods renders them. The implementing agent drafts all prose from §5's
+   intended findings and the snapshot values; the owner edits it during the
+   browser review. This sets the patterns Q2 and Q3 follow, and is reviewed in
+   the browser.
 4. **Q2 and Q3.** Both sections, following chunk 3's patterns. Split them if
    chunk 3 shows a section is larger than expected.
 5. **Acceptance and deployment.** Mobile, keyboard, disclosure, JavaScript-

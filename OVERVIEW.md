@@ -1,7 +1,8 @@
 # Project Overview
 
-Derived from executable contents in `src/`, `tests/`, `dbt/`, and `terraform/`.
-Source commit: `ef306b9c803bd71d4da071ef2379daee1f976bf0`.
+Derived from executable contents in `src/`, `tests/`, `dbt/`, `terraform/`,
+`tools/`, and `dashboard/`.
+Source commit: `5a33303ec21e4838f0c66471d07c54bcd9804231`.
 
 ## What This Is
 
@@ -10,7 +11,8 @@ bronze, GCS publication, and dbt analytics in BigQuery. Dagster coordinates loca
 refreshes and production warehouse builds. The analytical models measure AI's
 share of the extracted computer-science corpus, citation age, and citation
 concentration. Extraction accepts a configured filter; the analytics assume that
-filter selects the intended CS corpus.
+filter selects the intended CS corpus. A static dashboard, in progress, presents
+the three findings from a committed snapshot of the gold tables.
 
 ## Data Flow
 
@@ -26,6 +28,8 @@ OpenAlex works API
                  -> gold_citation_age_by_year
                  -> gold_citation_gini_by_subfield
                  -> gold_citation_gini_by_group
+  -> (manual export) dashboard/data/*.json + snapshot.json
+  -> Astro static build -> GitHub Pages
 ```
 
 Local paths sit under `OPENALEX_DATA_ROOT`. The bronze and upload manifests are
@@ -72,6 +76,17 @@ external table; dbt materializes all six models as native tables.
   with pooled groups as a secondary view. Outputs include Gini, zero share,
   cited-only Gini, top 1/5/10% citation shares, and publication-year diagnostics.
   Concentration metrics are null when the relevant citation total is zero.
+- **Snapshot exporter (`tools/export_dashboard_snapshot.py`):** run manually
+  with `uv run`. Reads the four prod gold relations with pinned column lists,
+  checks safe integers and the dbt bound variables, aborts if any table changed
+  during the export, and atomically replaces `dashboard/data/`. Records export
+  time, source tables, bounds, row counts, and an explicit pipeline revision
+  (possibly `unknown`) in `snapshot.json`.
+- **Dashboard (`dashboard/`):** an independent Astro/TypeScript project
+  (pinned Node, npm, Observable Plot) that reads only the committed snapshot.
+  `src/data/snapshot.ts` is the data boundary; it is validated once at build
+  time and the raw relations never reach the client. So far the page is a
+  placeholder.
 - **Infrastructure (`terraform/`):** provision the EU bronze bucket, raw and
   separate prod/dev analytics datasets, the pinned external-table schema, and
   a dedicated impersonated dbt identity with query, dataset-write, and source-read
@@ -135,6 +150,16 @@ are diagnostics excluded from headline windows. Unclassified subfields remain
 an explicit Q3 bucket. Gold tests reconcile cohort sizes, citations, cross-grain
 outputs, and concentration identities.
 
+**Snapshot to dashboard.** `parseSnapshot` checks pinned columns, types and
+nullability, unique grain keys, nonempty relations, and recorded row counts.
+It also checks that recorded bounds equal each relation's year extent, that
+partial-year flags match per row, and that the fixed views are complete: Q1
+from 1980, Q2 across citation-year bounds, and Q3's 2020 cohort with a
+five-year window containing every classified subfield. Known failures raise
+`SnapshotDataError` naming the file. Missing or malformed JSON fails as a
+bundler error. The dashboard filters and formats but never recomputes gold
+measures.
+
 ## Execution & Verification
 
 Extraction requires `OPENALEX_API_KEY`, `OPENALEX_FILTER`,
@@ -152,6 +177,11 @@ uv run pytest
 uv run dbt build --project-dir dbt --profiles-dir dbt --target dev \
   --vars '{year_min: 2012, year_max: 2016}'
 ```
+
+The dashboard runs from `dashboard/` with `npm ci`, `npm run check`,
+`npm test`, and `npm run build`. These need no credentials or running
+pipeline. `.github/workflows/dashboard-ci.yml` runs them on changes under
+`dashboard/`. The exporter needs prod access and is never run by CI.
 
 The dbt default target is `dev` (`openalex_analytics_dev`); prod is
 `openalex_analytics`. Selecting dev alone does not narrow the default corpus
