@@ -39,7 +39,7 @@ the date results were copied from the warehouse, not a source refresh date.
 ## From API to publication
 
 ```mermaid
-flowchart LR
+flowchart TD
     API[OpenAlex API] --> JSONL[JSONL pages]
     JSONL --> PQ[Typed Parquet]
     PQ --> GCS[GCS]
